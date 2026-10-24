@@ -8,6 +8,7 @@ import { DatabaseModule } from './database/database.module';
 import { validateEnvironment } from './config/env';
 import { HealthModule } from './health/health.module';
 import { SystemModule } from './system/system.module';
+import { SalonModule } from './salon/salon.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { SystemModule } from './system/system.module';
     AuthModule,
     HealthModule,
     SystemModule,
+    SalonModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
