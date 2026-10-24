@@ -10,7 +10,8 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule, { bufferLogs: true });
   app.useLogger(app.get(Logger));
   app.setGlobalPrefix(process.env.API_PREFIX ?? 'v1');
-  app.enableCors();
+  const origins = (process.env.CORS_ORIGINS ?? '').split(',').map((origin) => origin.trim()).filter(Boolean);
+  app.enableCors({ origin: origins.length ? origins : false });
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }));
   app.useGlobalFilters(new HttpExceptionFilter());
 
@@ -20,7 +21,7 @@ async function bootstrap() {
     .setVersion(process.env.APP_VERSION ?? '0.1.0')
     .addBearerAuth()
     .build();
-  SwaggerModule.setup('docs', app, SwaggerModule.createDocument(app, swaggerConfig));
+  if (process.env.NODE_ENV !== 'production') SwaggerModule.setup('docs', app, SwaggerModule.createDocument(app, swaggerConfig));
 
   await app.listen(Number(process.env.PORT ?? 3000));
 }

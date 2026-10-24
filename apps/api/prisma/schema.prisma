@@ -10,10 +10,9 @@ datasource db {
 
 enum MembershipRole {
   OWNER
-  ADMIN
   MANAGER
-  RECEPTIONIST
-  STAFF
+  CASHIER
+  STYLIST
 }
 
 enum CatalogItemType {
@@ -49,12 +48,15 @@ model User {
   email        String       @unique @db.VarChar(320)
   displayName  String       @db.VarChar(120)
   passwordHash String?      @db.VarChar(255)
+  emailVerifiedAt DateTime? @db.Timestamptz(3)
   createdAt    DateTime     @default(now()) @db.Timestamptz(3)
   updatedAt    DateTime     @updatedAt @db.Timestamptz(3)
   memberships  Membership[]
   staffProfiles StaffProfile[]
   sessions     Session[]
   auditLogs    AuditLog[]   @relation("AuditActor")
+  emailVerificationTokens EmailVerificationToken[]
+  passwordResetTokens PasswordResetToken[]
 }
 
 model Tenant {
@@ -231,15 +233,44 @@ model Payment {
 }
 
 model Session {
-  id               String   @id @default(uuid()) @db.Uuid
-  tenantId         String   @db.Uuid
-  userId           String   @db.Uuid
+  id                String   @id @default(uuid()) @db.Uuid
+  tenantId          String   @db.Uuid
+  userId            String   @db.Uuid
+  tokenFamilyId     String   @db.Uuid
   refreshTokenHash  String   @unique @db.VarChar(255)
-  expiresAt        DateTime @db.Timestamptz(3)
-  createdAt        DateTime @default(now()) @db.Timestamptz(3)
-  tenant           Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  replacedById      String?  @db.Uuid
+  expiresAt         DateTime @db.Timestamptz(3)
+  revokedAt         DateTime? @db.Timestamptz(3)
+  lastUsedAt        DateTime? @db.Timestamptz(3)
+  userAgent         String?  @db.VarChar(255)
+  createdAt         DateTime @default(now()) @db.Timestamptz(3)
+  tenant            Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   @@index([tenantId, userId])
+  @@index([tokenFamilyId])
+  @@index([userId, revokedAt])
+}
+
+model EmailVerificationToken {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  tokenHash String   @unique @db.VarChar(64)
+  expiresAt DateTime @db.Timestamptz(3)
+  usedAt    DateTime? @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId, expiresAt])
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  tokenHash String   @unique @db.VarChar(64)
+  expiresAt DateTime @db.Timestamptz(3)
+  usedAt    DateTime? @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId, expiresAt])
 }
 
 model AuditLog {

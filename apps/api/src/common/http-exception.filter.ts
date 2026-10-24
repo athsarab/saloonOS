@@ -9,7 +9,11 @@ export class HttpExceptionFilter implements ExceptionFilter {
     const request = context.getRequest<Request>();
     const status = exception instanceof HttpException ? exception.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR;
     const exceptionResponse = exception instanceof HttpException ? exception.getResponse() : undefined;
-    const message = typeof exceptionResponse === 'object' && exceptionResponse !== null && 'message' in exceptionResponse
+    const message = process.env.NODE_ENV === 'production'
+      ? exception instanceof HttpException
+        ? typeof exceptionResponse === 'object' && exceptionResponse !== null && 'message' in exceptionResponse ? exceptionResponse.message : 'Request failed'
+        : 'Internal server error'
+      : typeof exceptionResponse === 'object' && exceptionResponse !== null && 'message' in exceptionResponse
       ? exceptionResponse.message
       : exception instanceof Error ? exception.message : 'Internal server error';
 
