@@ -1,6 +1,7 @@
 import { Controller, Get, ServiceUnavailableException } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { DatabaseService } from '../database/database.service';
+import { Public } from '../auth/auth.decorators';
 
 @ApiTags('system')
 @Controller()
@@ -8,6 +9,7 @@ export class HealthController {
   constructor(private readonly database: DatabaseService) {}
 
   @Get('health')
+  @Public()
   @ApiOperation({ summary: 'Check API and database readiness' })
   @ApiResponse({ status: 200, description: 'API is ready' })
   @ApiResponse({ status: 503, description: 'Database is unavailable' })

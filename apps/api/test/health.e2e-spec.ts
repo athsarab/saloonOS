@@ -32,5 +32,10 @@ describe('Health API', () => {
       expect(body.name).toBe('SalonOS API');
       expect(body.version).toBeTruthy();
     });
+
+  });
+
+  it('rejects protected requests without an access token', async () => {
+    await request(app.getHttpServer()).post('/v1/auth/logout').expect(401);
   });
 });
