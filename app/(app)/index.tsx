@@ -1,17 +1,29 @@
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useQuery } from '@tanstack/react-query';
 import { AppHeader } from '../../src/components/AppHeader';
 import { Card, EmptyState, Screen, SectionTitle } from '../../src/components/ui';
-import { getApiHealth } from '../../src/lib/health';
-import { env } from '../../src/config/env';
+import { useDashboardStats, useAppointments } from '../../src/lib/salon-api';
 import { useTheme } from '../../src/theme/ThemeProvider';
 
 export default function DashboardScreen() {
   const { colors } = useTheme();
-  const health = useQuery({ queryKey: ['api-health'], queryFn: getApiHealth, enabled: env.isConfigured, retry: 1 });
-  const connectionLabel = !env.isConfigured ? 'API URL is not configured' : health.isPending ? 'Checking API connection…' : health.isSuccess ? 'API and database connected' : 'API connection unavailable';
-  return <Screen><SafeAreaView edges={['top']}><ScrollView contentContainerStyle={styles.content}><AppHeader eyebrow="Tuesday, 24 October" title="Good morning, Amaya" description="Here’s the shape of your day at The Green Room." /><Card style={styles.connection}><Text style={[styles.connectionLabel, { color: colors.textMuted }]}>WORKSPACE CONNECTION</Text><Text style={[styles.connectionValue, { color: health.isSuccess ? colors.primary : colors.text }]}>{connectionLabel}</Text></Card><Card style={styles.balance}><Text style={[styles.balanceLabel, { color: colors.textMuted }]}>TODAY’S REVENUE</Text><Text style={[styles.balanceValue, { color: colors.text }]}>—</Text><Text style={[styles.balanceHint, { color: colors.textMuted }]}>Connect your account to see live performance</Text></Card><View style={styles.stats}><Card style={styles.stat}><Text style={[styles.statValue, { color: colors.text }]}>—</Text><Text style={[styles.statLabel, { color: colors.textMuted }]}>Appointments</Text></Card><Card style={styles.stat}><Text style={[styles.statValue, { color: colors.text }]}>—</Text><Text style={[styles.statLabel, { color: colors.textMuted }]}>Open slots</Text></Card></View><SectionTitle title="Today’s schedule" /><Card><EmptyState title="Your schedule is clear" description="Appointments from your connected workspace will appear here." /></Card></ScrollView></SafeAreaView></Screen>;
+  const stats = useDashboardStats();
+  const appointments = useAppointments();
+  const stat = stats.data;
+  return <Screen><SafeAreaView edges={['top']}><ScrollView contentContainerStyle={styles.content}>
+    <AppHeader title="Today at a glance" description="Keep the team moving and every guest looked after." />
+    {stats.isError ? <Card><Text style={{ color: colors.danger }}>Unable to load today’s appointments. Pull to retry.</Text></Card> : null}
+    <View style={styles.stats}>
+      {[
+        ['Total', stat?.total ?? '—'],
+        ['Upcoming', stat?.upcoming ?? '—'],
+        ['Completed', stat?.completed ?? '—'],
+        ['Cancelled', stat?.cancelled ?? '—'],
+      ].map(([label, value]) => <Card key={label} style={styles.stat}><Text style={[styles.value, { color: colors.text }]}>{value}</Text><Text style={[styles.label, { color: colors.textMuted }]}>{label}</Text></Card>)}
+    </View>
+    <SectionTitle title="Today’s schedule" />
+    <Card>{appointments.isPending ? <Text style={{ color: colors.textMuted }}>Loading schedule…</Text> : appointments.data?.items.length ? appointments.data.items.map((item) => <View key={item.id} style={styles.row}><Text style={[styles.time, { color: colors.primary }]}>{new Date(item.startsAt).toLocaleTimeString('en-LK', { timeZone: 'Asia/Colombo', hour: '2-digit', minute: '2-digit' })}</Text><View><Text style={[styles.name, { color: colors.text }]}>{item.customer.firstName} {item.customer.lastName ?? ''}</Text><Text style={[styles.detail, { color: colors.textMuted }]}>{item.service?.name ?? 'Service'} · {item.status.toLowerCase()}</Text></View></View>) : <EmptyState title="No appointments today" description="New bookings will appear here as soon as they are created." />}</Card>
+  </ScrollView></SafeAreaView></Screen>;
 }
 
-const styles = StyleSheet.create({ content: { gap: 20, padding: 20 }, connection: { gap: 6, padding: 16 }, connectionLabel: { fontSize: 11, fontWeight: '800', letterSpacing: 1.1 }, connectionValue: { fontSize: 15, fontWeight: '700' }, balance: { gap: 8, marginTop: 6, padding: 22 }, balanceLabel: { fontSize: 11, fontWeight: '800', letterSpacing: 1.1 }, balanceValue: { fontSize: 34, fontWeight: '800' }, balanceHint: { fontSize: 13 }, stats: { flexDirection: 'row', gap: 12 }, stat: { flex: 1, gap: 6, padding: 16 }, statValue: { fontSize: 25, fontWeight: '800' }, statLabel: { fontSize: 13 } });
+const styles = StyleSheet.create({ content: { gap: 20, padding: 20 }, stats: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 }, stat: { flexBasis: '47%', flexGrow: 1, gap: 6, padding: 16 }, value: { fontSize: 26, fontWeight: '800' }, label: { fontSize: 13 }, row: { flexDirection: 'row', gap: 16, paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#D8DDE5' }, time: { width: 72, fontWeight: '700' }, name: { fontSize: 15, fontWeight: '700' }, detail: { marginTop: 3, fontSize: 13 } });
