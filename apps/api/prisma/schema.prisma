@@ -76,6 +76,8 @@ model Tenant {
   payments     Payment[]
   sessions     Session[]
   auditLogs    AuditLog[]
+  schedules    StaffSchedule[]
+  timeOff      StaffTimeOff[]
 }
 
 model Membership {
@@ -103,6 +105,8 @@ model Branch {
   staffProfiles StaffProfile[]
   appointments Appointment[]
   sales        Sale[]
+  schedules    StaffSchedule[]
+  timeOff      StaffTimeOff[]
   @@unique([tenantId, id])
   @@unique([tenantId, code])
   @@index([tenantId])
@@ -121,6 +125,8 @@ model StaffProfile {
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   branch    Branch    @relation(fields: [tenantId, branchId], references: [tenantId, id], onDelete: Restrict)
   appointments Appointment[]
+  schedules    StaffSchedule[]
+  timeOff      StaffTimeOff[]
   @@unique([tenantId, id])
   @@unique([tenantId, userId])
   @@index([tenantId, branchId])
@@ -149,13 +155,16 @@ model CatalogItem {
   tenantId    String          @db.Uuid
   name        String          @db.VarChar(160)
   description String?
+  category    String?         @db.VarChar(80)
   type        CatalogItemType
   priceLkr    Decimal         @db.Decimal(12, 2)
+  durationMinutes Int?
   active      Boolean         @default(true)
   createdAt   DateTime        @default(now()) @db.Timestamptz(3)
   updatedAt   DateTime        @updatedAt @db.Timestamptz(3)
   tenant      Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   saleLines   SaleLine[]
+  appointments Appointment[]
   @@unique([tenantId, id])
   @@unique([tenantId, name])
   @@index([tenantId, type, active])
@@ -166,6 +175,7 @@ model Appointment {
   tenantId       String            @db.Uuid
   branchId       String            @db.Uuid
   customerId     String            @db.Uuid
+  serviceId      String?        @db.Uuid
   staffProfileId String?           @db.Uuid
   startsAt       DateTime          @db.Timestamptz(3)
   endsAt         DateTime          @db.Timestamptz(3)
@@ -176,10 +186,44 @@ model Appointment {
   tenant         Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   branch         Branch            @relation(fields: [tenantId, branchId], references: [tenantId, id], onDelete: Restrict)
   customer       Customer          @relation(fields: [tenantId, customerId], references: [tenantId, id], onDelete: Restrict)
+  service        CatalogItem?      @relation(fields: [tenantId, serviceId], references: [tenantId, id], onDelete: Restrict)
   staffProfile   StaffProfile?     @relation(fields: [tenantId, staffProfileId], references: [tenantId, id], onDelete: Restrict)
   @@unique([tenantId, id])
   @@index([tenantId, branchId, startsAt])
   @@index([tenantId, customerId])
+  @@index([tenantId, staffProfileId, startsAt, endsAt])
+}
+
+model StaffSchedule {
+  id        String   @id @default(uuid()) @db.Uuid
+  tenantId  String   @db.Uuid
+  staffId   String   @db.Uuid
+  branchId  String   @db.Uuid
+  dayOfWeek Int
+  startsAt  String   @db.VarChar(5)
+  endsAt    String   @db.VarChar(5)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  staff     StaffProfile @relation(fields: [tenantId, staffId], references: [tenantId, id], onDelete: Cascade)
+  branch    Branch   @relation(fields: [tenantId, branchId], references: [tenantId, id], onDelete: Cascade)
+  @@unique([tenantId, staffId, dayOfWeek])
+  @@index([tenantId, branchId])
+}
+
+model StaffTimeOff {
+  id        String   @id @default(uuid()) @db.Uuid
+  tenantId  String   @db.Uuid
+  staffId   String   @db.Uuid
+  branchId  String   @db.Uuid
+  startsAt  DateTime @db.Timestamptz(3)
+  endsAt    DateTime @db.Timestamptz(3)
+  reason    String?  @db.VarChar(255)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  staff     StaffProfile @relation(fields: [tenantId, staffId], references: [tenantId, id], onDelete: Cascade)
+  branch    Branch   @relation(fields: [tenantId, branchId], references: [tenantId, id], onDelete: Cascade)
+  @@index([tenantId, staffId, startsAt, endsAt])
 }
 
 model Sale {
