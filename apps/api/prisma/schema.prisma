@@ -1,0 +1,258 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum MembershipRole {
+  OWNER
+  ADMIN
+  MANAGER
+  RECEPTIONIST
+  STAFF
+}
+
+enum CatalogItemType {
+  SERVICE
+  PRODUCT
+}
+
+enum AppointmentStatus {
+  BOOKED
+  CONFIRMED
+  CHECKED_IN
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum SaleStatus {
+  OPEN
+  COMPLETED
+  VOIDED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  CASH
+  CARD
+  BANK_TRANSFER
+  MOBILE_WALLET
+}
+
+model User {
+  id           String       @id @default(uuid()) @db.Uuid
+  email        String       @unique @db.VarChar(320)
+  displayName  String       @db.VarChar(120)
+  passwordHash String?      @db.VarChar(255)
+  createdAt    DateTime     @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime     @updatedAt @db.Timestamptz(3)
+  memberships  Membership[]
+  staffProfiles StaffProfile[]
+  sessions     Session[]
+  auditLogs    AuditLog[]   @relation("AuditActor")
+}
+
+model Tenant {
+  id           String        @id @default(uuid()) @db.Uuid
+  name         String        @db.VarChar(160)
+  slug         String        @unique @db.VarChar(80)
+  createdAt    DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime      @updatedAt @db.Timestamptz(3)
+  memberships  Membership[]
+  branches     Branch[]
+  staffProfiles StaffProfile[]
+  customers    Customer[]
+  catalogItems CatalogItem[]
+  appointments Appointment[]
+  sales        Sale[]
+  saleLines    SaleLine[]
+  payments     Payment[]
+  sessions     Session[]
+  auditLogs    AuditLog[]
+}
+
+model Membership {
+  id        String         @id @default(uuid()) @db.Uuid
+  tenantId  String         @db.Uuid
+  userId    String         @db.Uuid
+  role      MembershipRole
+  createdAt DateTime       @default(now()) @db.Timestamptz(3)
+  tenant    Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([tenantId, userId])
+  @@index([userId])
+}
+
+model Branch {
+  id           String        @id @default(uuid()) @db.Uuid
+  tenantId     String        @db.Uuid
+  name         String        @db.VarChar(160)
+  code         String        @db.VarChar(40)
+  address      String?       @db.VarChar(500)
+  timezone     String        @default("Asia/Colombo") @db.VarChar(64)
+  createdAt    DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime      @updatedAt @db.Timestamptz(3)
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  staffProfiles StaffProfile[]
+  appointments Appointment[]
+  sales        Sale[]
+  @@unique([tenantId, id])
+  @@unique([tenantId, code])
+  @@index([tenantId])
+}
+
+model StaffProfile {
+  id        String    @id @default(uuid()) @db.Uuid
+  tenantId  String    @db.Uuid
+  userId    String    @db.Uuid
+  branchId  String    @db.Uuid
+  title     String?   @db.VarChar(120)
+  active    Boolean   @default(true)
+  createdAt DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @db.Timestamptz(3)
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  branch    Branch    @relation(fields: [tenantId, branchId], references: [tenantId, id], onDelete: Restrict)
+  appointments Appointment[]
+  @@unique([tenantId, id])
+  @@unique([tenantId, userId])
+  @@index([tenantId, branchId])
+}
+
+model Customer {
+  id           String        @id @default(uuid()) @db.Uuid
+  tenantId     String        @db.Uuid
+  firstName    String        @db.VarChar(80)
+  lastName     String?       @db.VarChar(80)
+  phone        String?       @db.VarChar(32)
+  email        String?       @db.VarChar(320)
+  notes        String?
+  createdAt    DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime      @updatedAt @db.Timestamptz(3)
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  appointments Appointment[]
+  sales        Sale[]
+  @@unique([tenantId, id])
+  @@unique([tenantId, email])
+  @@index([tenantId, phone])
+}
+
+model CatalogItem {
+  id          String          @id @default(uuid()) @db.Uuid
+  tenantId    String          @db.Uuid
+  name        String          @db.VarChar(160)
+  description String?
+  type        CatalogItemType
+  priceLkr    Decimal         @db.Decimal(12, 2)
+  active      Boolean         @default(true)
+  createdAt   DateTime        @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime        @updatedAt @db.Timestamptz(3)
+  tenant      Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  saleLines   SaleLine[]
+  @@unique([tenantId, id])
+  @@unique([tenantId, name])
+  @@index([tenantId, type, active])
+}
+
+model Appointment {
+  id             String            @id @default(uuid()) @db.Uuid
+  tenantId       String            @db.Uuid
+  branchId       String            @db.Uuid
+  customerId     String            @db.Uuid
+  staffProfileId String?           @db.Uuid
+  startsAt       DateTime          @db.Timestamptz(3)
+  endsAt         DateTime          @db.Timestamptz(3)
+  status         AppointmentStatus @default(BOOKED)
+  notes          String?
+  createdAt      DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime          @updatedAt @db.Timestamptz(3)
+  tenant         Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch         Branch            @relation(fields: [tenantId, branchId], references: [tenantId, id], onDelete: Restrict)
+  customer       Customer          @relation(fields: [tenantId, customerId], references: [tenantId, id], onDelete: Restrict)
+  staffProfile   StaffProfile?     @relation(fields: [tenantId, staffProfileId], references: [tenantId, id], onDelete: Restrict)
+  @@unique([tenantId, id])
+  @@index([tenantId, branchId, startsAt])
+  @@index([tenantId, customerId])
+}
+
+model Sale {
+  id          String      @id @default(uuid()) @db.Uuid
+  tenantId    String      @db.Uuid
+  branchId    String      @db.Uuid
+  customerId  String?     @db.Uuid
+  status      SaleStatus  @default(OPEN)
+  subtotalLkr Decimal     @db.Decimal(12, 2)
+  discountLkr Decimal     @default(0) @db.Decimal(12, 2)
+  taxLkr      Decimal     @default(0) @db.Decimal(12, 2)
+  totalLkr    Decimal     @db.Decimal(12, 2)
+  currency    String      @default("LKR") @db.Char(3)
+  createdAt   DateTime    @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime    @updatedAt @db.Timestamptz(3)
+  tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch      Branch      @relation(fields: [tenantId, branchId], references: [tenantId, id], onDelete: Restrict)
+  customer    Customer?   @relation(fields: [tenantId, customerId], references: [tenantId, id], onDelete: Restrict)
+  lines       SaleLine[]
+  payments    Payment[]
+  @@unique([tenantId, id])
+  @@index([tenantId, branchId, createdAt])
+}
+
+model SaleLine {
+  id            String      @id @default(uuid()) @db.Uuid
+  tenantId      String      @db.Uuid
+  saleId        String      @db.Uuid
+  catalogItemId String      @db.Uuid
+  quantity      Decimal     @db.Decimal(10, 3)
+  unitPriceLkr  Decimal     @db.Decimal(12, 2)
+  lineTotalLkr  Decimal     @db.Decimal(12, 2)
+  createdAt     DateTime    @default(now()) @db.Timestamptz(3)
+  tenant        Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  sale          Sale        @relation(fields: [tenantId, saleId], references: [tenantId, id], onDelete: Cascade)
+  catalogItem   CatalogItem @relation(fields: [tenantId, catalogItemId], references: [tenantId, id], onDelete: Restrict)
+  @@index([tenantId, saleId])
+}
+
+model Payment {
+  id          String        @id @default(uuid()) @db.Uuid
+  tenantId    String        @db.Uuid
+  saleId      String        @db.Uuid
+  amountLkr   Decimal       @db.Decimal(12, 2)
+  method      PaymentMethod
+  reference   String?       @db.VarChar(120)
+  createdAt   DateTime      @default(now()) @db.Timestamptz(3)
+  tenant      Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  sale        Sale          @relation(fields: [tenantId, saleId], references: [tenantId, id], onDelete: Cascade)
+  @@index([tenantId, saleId])
+}
+
+model Session {
+  id               String   @id @default(uuid()) @db.Uuid
+  tenantId         String   @db.Uuid
+  userId           String   @db.Uuid
+  refreshTokenHash  String   @unique @db.VarChar(255)
+  expiresAt        DateTime @db.Timestamptz(3)
+  createdAt        DateTime @default(now()) @db.Timestamptz(3)
+  tenant           Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([tenantId, userId])
+}
+
+model AuditLog {
+  id          String   @id @default(uuid()) @db.Uuid
+  tenantId    String   @db.Uuid
+  actorUserId String?  @db.Uuid
+  action      String   @db.VarChar(120)
+  entityType  String   @db.VarChar(80)
+  entityId    String?  @db.Uuid
+  metadata    Json?
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  actor       User?    @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+  @@index([tenantId, createdAt])
+  @@index([tenantId, entityType, entityId])
+}
