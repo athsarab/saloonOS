@@ -13,6 +13,7 @@ export class AuthController {
   constructor(private readonly auth: AuthService) {}
   @Public() @Post('register') register(@Body() dto: RegisterDto) { return this.auth.register(dto); }
   @Public() @Post('verify-email') verifyEmail(@Body() dto: VerifyEmailDto) { return this.auth.verifyEmail(dto); }
+  @Public() @Throttle({ default: { limit: 3, ttl: 60000 } }) @Post('resend-verification') resendVerification(@Body() dto: ForgotPasswordDto) { return this.auth.resendVerification(dto); }
   @Public() @Post('login') login(@Body() dto: LoginDto, @Headers('user-agent') userAgent?: string) { return this.auth.login(dto, { userAgent }); }
   @Public() @Post('refresh') refresh(@Body() dto: TokenDto, @Headers('user-agent') userAgent?: string) { return this.auth.refresh(dto, { userAgent }); }
   @Public() @Post('forgot-password') forgotPassword(@Body() dto: ForgotPasswordDto) { return this.auth.forgotPassword(dto); }

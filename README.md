@@ -18,11 +18,10 @@ SalonOS is a React Native + Expo foundation for a multi-tenant salon POS. The cu
 ```powershell
 cd "D:\react native apps\saloonOS"
 npm install
-$env:EXPO_PUBLIC_API_URL="https://your-api.example.com"
 npm run start
 ```
 
-Keep the API variable unset while working on the UI; the app intentionally does not submit authentication forms without a real service.
+Local API addresses are configured in `src/config/env.ts`; you do not need to set an API variable in the terminal during local development.
 
 ## Android testing
 
@@ -110,20 +109,28 @@ Restart the API after changing `.env`: stop its terminal with Ctrl+C, then run `
 In a separate Command Prompt (cmd) terminal, start Expo web:
 
 ```cmd
-set "EXPO_PUBLIC_API_URL=http://127.0.0.1:3000"
 npm run start -- --web --clear
 ```
 
 ### Mobile API connection
 
-For a local Android emulator, set the Expo public API URL to the host loopback address:
+Edit the local API settings at the top of [src/config/env.ts](./src/config/env.ts):
 
-```powershell
-$env:EXPO_PUBLIC_API_URL="http://10.0.2.2:3000"
-npm run start
+```ts
+const localApi = {
+  enabled: true,
+  computerIp: '192.168.159.181',
+  port: 3000,
+} as const;
 ```
 
-For a physical device, use the computer's LAN IP instead, for example `http://192.168.1.20:3000`. The mobile dashboard calls `/v1/health` only; authentication is not implemented yet.
+- Physical phone: use the computer's Wi-Fi IPv4 address in `computerIp`. The current address is `192.168.159.181`; it may change when you switch networks.
+- Web on this computer: automatically uses `http://127.0.0.1:3000`.
+- Android Studio emulator: set `computerIp` to `10.0.2.2`.
+
+After editing this file, save and reload the app in Expo Go. Keep Expo and the API running; no terminal API variable or server restart is needed for this frontend setting.
+
+These local settings take precedence over `EXPO_PUBLIC_API_URL` in development. Set `enabled: false` to use an environment-configured remote API during development. Release builds always use `EXPO_PUBLIC_API_URL` and never use the local IP fallback.
 
 All database timestamps are stored as UTC `timestamptz`. Branches default to `Asia/Colombo`, and future API serializers should convert UTC instants to branch-local display time. Monetary columns use PostgreSQL `numeric(12,2)` and Prisma `Decimal`, with LKR as the initial currency.
 
@@ -145,11 +152,28 @@ Roles and permissions are defined in [auth.constants.ts](./apps/api/src/auth/aut
 | Inventory | Read/write | Read/write | Read | — |
 | Reports | Yes | Yes | — | — |
 
-### Development email transport
+### Gmail verification emails
 
-Local development uses Nodemailer’s JSON transport. It does not send external email. The complete verification or reset message is written to the API structured log. Copy the token from the development log into the mobile verification/reset screen or use the token query parameter in the logged link.
+Verification emails use Gmail SMTP. Configure the following in `apps/api/.env` (these are backend secrets; never add them to Expo public variables):
 
-For a real provider later, replace the transport in `apps/api/src/auth/email.service.ts` with the provider’s maintained SDK or SMTP transport. Store provider credentials only in the API deployment environment, add provider timeout/retry policy, verify the sending domain, and never expose provider keys to Expo.
+```env
+EMAIL_TRANSPORT=smtp
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=465
+SMTP_USER=your-sender@gmail.com
+SMTP_PASSWORD=your-google-app-password
+EMAIL_FROM=your-sender@gmail.com
+```
+
+Use the same Gmail address for `SMTP_USER` and `EMAIL_FROM`. Enable Google 2-Step Verification, then create an [App Password](https://myaccount.google.com/apppasswords). Use that App Password, not your normal Gmail password; copy it without the display spaces. See [Google's App Password instructions](https://support.google.com/accounts/answer/185833).
+
+Restart the API after editing `apps/api/.env`. Registration sends a random six-digit code to the entered email address. Enter the email and code on the verification screen; codes expire after 15 minutes and can be consumed only once. The database stores an email-bound HMAC hash, not the code. Codes and email bodies are not logged in SMTP mode.
+
+For an account created earlier, choose **Verify an existing account** on registration and then **Resend verification code**. Resending replaces outstanding codes; the endpoint is limited to three requests per minute per client. If Gmail cannot accept a message, the API returns a delivery error instead of claiming it was sent. SMTP acceptance does not guarantee inbox placement; check spam too.
+
+Password-reset messages also use SMTP. Set `APP_BASE_URL` to your frontend URL for reset links (not the API URL). On a phone you can also paste the reset token from the received email into the app.
+
+Tests explicitly use `EMAIL_TRANSPORT=json` to avoid sending email. For deliberate offline previews, this mode is available outside production; preview messages appear only in the API log and are not delivered.
 
 ### Authentication testing checklist
 
@@ -176,8 +200,8 @@ The API tests cover:
 
 Manual checklist after configuring a real Neon database:
 
-1. Register with a new email and verify that only the development email log contains the token.
-2. Verify the token once, then verify it again and confirm rejection.
+1. Register with a new email and confirm the inbox receives a six-digit verification code.
+2. Verify the email and code once, then reuse the code and confirm rejection.
 3. Log in with a wrong password and confirm the response does not reveal whether the account exists.
 4. Log in successfully, close/reopen the Android app, and confirm the session restores through refresh-token rotation.
 5. Capture a refresh token, use it once, then replay the old token and confirm the entire token family is revoked.
@@ -194,44 +218,26 @@ Do not describe the deployment as production-ready until the real Neon migration
 ### Physical Android testing
 
 1. Put the Android phone and development computer on the same Wi-Fi network.
-2. Start the API with `npm run api:dev`.
-3. Find the computer’s LAN address with `ipconfig`.
-4. Set the Expo API URL to the LAN address, not `localhost`:
-
-```powershell
-$env:EXPO_PUBLIC_API_URL="http://192.168.1.20:3000"
-npm run start
-```
-
-5. Open the project in Expo Go or a development build on the phone.
-6. Register, retrieve the token from the API development log, verify the email, and log in.
+2. Keep the API running with `npm run api:dev` in one terminal and Expo with `npm run start` in another.
+3. Set `computerIp` in `src/config/env.ts` to the computer's Wi-Fi IPv4 address (find it with `ipconfig` when it changes).
+4. Scan the Expo terminal's QR code with Expo Go. After future IP edits, save the file and reload Expo Go.
+5. Open `http://192.168.159.181:3000/v1/health` in the phone's browser to verify API connectivity; substitute the new address if it changes.
+6. Register, retrieve the code from your inbox, verify the email, and log in.
 7. Force-close and reopen the app to test SecureStore-backed session restoration.
 8. Test logout, logout-all, password reset, tenant selection, and role-denied requests.
 
-If the phone cannot reach the API, allow the Node process through Windows Firewall on the private network and confirm the phone can reach `http://192.168.1.20:3000/v1/health` in its browser.
+If the phone cannot reach the health URL, confirm both devices are on the same network and allow the API's Node process through Windows Firewall for that network.
 
 ### Connection timeout troubleshooting
 
-`10.0.2.2` is only the Android Studio emulator alias for the development computer. It is not valid from Expo Web or from a physical phone.
+`10.0.2.2` is only the Android Studio emulator alias for the development computer. For a physical phone, edit `computerIp` in `src/config/env.ts` to the computer's LAN address. Web uses `127.0.0.1` automatically in local development.
 
-- Expo Web: `$env:EXPO_PUBLIC_API_URL="http://127.0.0.1:3000"`
-- Android Studio emulator: `$env:EXPO_PUBLIC_API_URL="http://10.0.2.2:3000"`
-- Physical Android device: `$env:EXPO_PUBLIC_API_URL="http://<your-computer-LAN-IP>:3000"`
+Keep the API and Expo running in separate terminals. Check the API from Command Prompt:
 
-Start the API first, then set the variable and restart Expo because `EXPO_PUBLIC_*` values are embedded when the bundle starts:
-
-```powershell
-npm run api:dev
-
-# Use the value for the platform you are testing:
-$env:EXPO_PUBLIC_API_URL="http://127.0.0.1:3000"
-npm run start -- --clear
+```cmd
+curl http://127.0.0.1:3000/v1/health
 ```
 
-Check the API independently before trying registration:
+Then check the equivalent LAN URL in the phone's browser. If the computer health check passes but the phone's check fails, investigate Wi-Fi isolation or firewall access. Reload Expo Go after changing `computerIp`.
 
-```powershell
-Invoke-RestMethod http://127.0.0.1:3000/v1/health
-```
-
-Registration intentionally returns a generic success message. With the development JSON email transport, copy the verification token/link from the API terminal log and enter it on the Verify Email screen before signing in.
+Registration sends a six-digit verification code through the configured SMTP provider. Enter the code and email on the Verify Email screen before signing in. If the account already exists but is unverified, use Resend verification code.

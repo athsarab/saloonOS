@@ -17,7 +17,8 @@ export class TokenDto {
 }
 
 export class VerifyEmailDto {
-  @IsString() @MinLength(20) token!: string;
+  @IsOptional() @IsEmail() email?: string;
+  @IsString() @Matches(/^(?:\d{6}|[A-Za-z0-9_-]{20,128})$/) token!: string;
 }
 
 export class ForgotPasswordDto {

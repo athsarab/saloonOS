@@ -10,3 +10,4 @@ process.env.REFRESH_TOKEN_TTL_DAYS = '30';
 process.env.AUTH_RATE_LIMIT = '10';
 process.env.APP_BASE_URL = 'http://localhost:3001';
 process.env.EMAIL_FROM = 'test@salonos.local';
+process.env.EMAIL_TRANSPORT = 'json';

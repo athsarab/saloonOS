@@ -15,6 +15,11 @@ const schema = z.object({
   APP_BASE_URL: z.string().url().default('http://localhost:3000'),
   CORS_ORIGINS: z.string().default(''),
   EMAIL_FROM: z.string().email().default('no-reply@salonos.local'),
+  EMAIL_TRANSPORT: z.enum(['smtp', 'json']).default('smtp'),
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.coerce.number().int().min(1).max(65535).default(465),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASSWORD: z.string().optional(),
 });
 
 export type AppConfig = z.infer<typeof schema>;
