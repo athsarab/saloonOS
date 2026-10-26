@@ -9,6 +9,7 @@ import { validateEnvironment } from './config/env';
 import { HealthModule } from './health/health.module';
 import { SystemModule } from './system/system.module';
 import { SalonModule } from './salon/salon.module';
+import { CheckoutModule } from './checkout/checkout.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { SalonModule } from './salon/salon.module';
     HealthModule,
     SystemModule,
     SalonModule,
+    CheckoutModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
