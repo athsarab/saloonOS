@@ -10,12 +10,13 @@ import { HealthModule } from './health/health.module';
 import { SystemModule } from './system/system.module';
 import { SalonModule } from './salon/salon.module';
 import { CheckoutModule } from './checkout/checkout.module';
+import { OfflineModule } from './offline/offline.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true, validate: validateEnvironment }),
     LoggerModule.forRoot({
-      pinoHttp: { level: process.env.LOG_LEVEL ?? 'info', redact: ['req.headers.authorization'] },
+      pinoHttp: { level: process.env.LOG_LEVEL ?? 'info', redact: ['req.headers.authorization', 'req.headers["x-offline-device-secret"]'] },
     }),
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 60 }]),
     DatabaseModule,
@@ -24,6 +25,7 @@ import { CheckoutModule } from './checkout/checkout.module';
     SystemModule,
     SalonModule,
     CheckoutModule,
+    OfflineModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

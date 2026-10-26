@@ -9,12 +9,15 @@ import { CatalogItem, CheckoutRequest, Quote, Sale, requestKey, useBranches, use
 import { cents, decimal, lkr } from '../../src/lib/money';
 import { shareReceipt } from '../../src/lib/receipt';
 import { useTheme } from '../../src/theme/ThemeProvider';
+import { router } from 'expo-router';
+import { useOffline } from '../../src/offline/runtime';
 
 type CartLine = { item: CatalogItem; quantity: number; staffId?: string };
 type Attempt = { payload: CheckoutRequest; idempotencyKey: string };
 
 export default function CheckoutScreen() {
   const { colors } = useTheme();
+  const offline = useOffline();
   const access = useCheckoutAccess(), branches = useBranches(), catalog = useCatalog();
   const [branch, setBranch] = useState('');
   const branchId = branch || branches.data?.[0]?.id;
@@ -57,6 +60,7 @@ export default function CheckoutScreen() {
   });
   const review = async () => {
     setMessage('');
+    if (!offline.apiOnline) { setMessage('The API is unreachable. Use Offline cash checkout only after preparing an authorized session in Sync Status.'); return; }
     try {
       if (!cart.length || !branchId) throw new Error('Choose a branch and at least one item.');
       if (cart.some(line => line.item.type === 'SERVICE' && !line.staffId)) throw new Error('Assign a staff member to every service.');
@@ -88,6 +92,8 @@ export default function CheckoutScreen() {
   const saveShift = async () => {
     setShiftError('');
     try {
+      if (!offline.apiOnline) throw new Error('Cash shifts can only be opened or closed while the API is reachable.');
+      if (shiftMode === 'close' && offline.items.some(item => item.operation.checkout.branchId === branchId && item.state !== 'synchronized')) throw new Error('Reconcile and synchronize locally recorded cash before closing this shift.');
       const amount = decimal(cents(count));
       if (shiftMode === 'open') {
         await openShift.mutateAsync({ branchId: branchId!, openingAmountLkr: amount });
@@ -107,7 +113,7 @@ export default function CheckoutScreen() {
   );
 
   if (access.isPending) return <Screen><View style={styles.center}><ActivityIndicator color={colors.primary} /><Text style={{ color: colors.text }}>Loading checkout...</Text></View></Screen>;
-  if (access.isError) return <Screen><View style={styles.center}><EmptyState title="Checkout unavailable" description="Check your connection and make sure your role permits checkout." /><Button label="Try again" onPress={() => void access.refetch()} /></View></Screen>;
+  if (access.isError) return <Screen><View style={styles.center}><EmptyState title="Online checkout unavailable" description="Check your connection and make sure your role permits checkout." /><Button label="Authorized offline cash checkout" onPress={() => router.push('/(app)/offline-checkout')} /><Button label="Sync Status" variant="secondary" onPress={() => router.push('/(app)/sync')} /><Button label="Try online again" onPress={() => void access.refetch()} /></View></Screen>;
 
   return (
     <Screen>
@@ -120,6 +126,7 @@ export default function CheckoutScreen() {
             <Text style={[styles.eyebrow, { color: colors.primary }]}>SALONOS / POINT OF SALE</Text>
             <View style={styles.heading}><Text style={[styles.title, { color: colors.text }]}>A smooth checkout.</Text><ShoppingBag color={colors.primary} size={26} /></View>
             <Text style={{ color: colors.textMuted }}>Services, finishing touches, and a little care.</Text>
+            <Button label="Offline cash and Sync Status" variant="secondary" onPress={() => router.push('/(app)/sync')} />
             <View style={styles.wrap}>{(branches.data ?? []).map(item => chip(item.name, branchId === item.id, () => { setBranch(item.id); setQuote(null); }, cart.length > 0 && branchId !== item.id))}</View>
             {branches.isError ? <Button label="Retry branches" onPress={() => void branches.refetch()} /> : !branches.isPending && !branches.data?.length ? <Text style={{ color: colors.danger }}>Create a branch in business settings before checkout.</Text> : null}
             <Card>

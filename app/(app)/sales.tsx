@@ -9,11 +9,13 @@ import { requestKey, useBranches, useCheckoutAccess, useDailyReport, useRefund, 
 import { cents, decimal, lkr } from '../../src/lib/money';
 import { shareReceipt } from '../../src/lib/receipt';
 import { useTheme } from '../../src/theme/ThemeProvider';
+import { useOffline } from '../../src/offline/runtime';
 
 type RefundAttempt = { saleId: string; amountLkr: string; reason: string; idempotencyKey: string };
 
 export default function SalesScreen() {
   const { colors } = useTheme();
+  const apiOnline = useOffline(state => state.apiOnline);
   const access = useCheckoutAccess(), branches = useBranches();
   const [branch, setBranch] = useState(''), [offset, setOffset] = useState(0);
   const branchId = branch || branches.data?.[0]?.id;
@@ -33,6 +35,7 @@ export default function SalesScreen() {
   const busy = refund.isPending || verify.isPending;
 
   const confirmRefund = async () => {
+    if (!apiOnline) { setMessage('Refunds require a live API connection. Do not pay out cash while offline.'); return; }
     if (!sale || inFlight.current) return;
     inFlight.current = true;
     let payload = attempt;
@@ -55,6 +58,7 @@ export default function SalesScreen() {
     } finally { inFlight.current = false; }
   };
   const resolveTransfer = async (status: 'VERIFIED' | 'FAILED') => {
+    if (!apiOnline) { setMessage('Bank verification requires a live API connection.'); return; }
     if (inFlight.current) return;
     inFlight.current = true;
     setMessage('');
@@ -141,13 +145,13 @@ export default function SalesScreen() {
             <Field label="Refund amount (LKR)" value={amount} onChangeText={setAmount} keyboardType="decimal-pad" editable={!attempt && !busy} />
             <Field label="Reason for refund" value={reason} onChangeText={setReason} maxLength={255} editable={!attempt && !busy} />
             <Text style={{ color: colors.textMuted }}>This records money returned to the customer. Amount-only refunds do not automatically restock products. Cash refunds need an open shift.</Text>
-            <Button label={attempt ? 'Retry refund safely' : 'Confirm refund paid'} loading={refund.isPending} onPress={() => void confirmRefund()} />
+            <Button label={attempt ? 'Retry refund safely' : 'Confirm refund paid'} disabled={!apiOnline} loading={refund.isPending} onPress={() => void confirmRefund()} />
             {!attempt ? <Button label="Cancel" variant="ghost" onPress={() => setMode('receipt')} /> : null}
           </> : <>
             <Text style={[styles.subtitle, { color: colors.text }]}>{lkr(sale.totalLkr)}</Text>
             <Text selectable style={{ color: colors.text }}>Reference: {sale.payments.find(payment => payment.id === paymentId)?.reference}</Text>
             <Text style={{ color: colors.textMuted }}>Check your bank account independently. Confirm only when the actual credit, reference, and amount match this sale.</Text>
-            <Button label="Confirm bank credit verified" loading={verify.isPending} onPress={() => void resolveTransfer('VERIFIED')} />
+            <Button label="Confirm bank credit verified" disabled={!apiOnline} loading={verify.isPending} onPress={() => void resolveTransfer('VERIFIED')} />
             <Button label="Reject transfer and release stock" variant="secondary" disabled={busy} onPress={() => void resolveTransfer('FAILED')} />
             <Button label="Keep pending" variant="ghost" disabled={busy} onPress={() => setMode('receipt')} />
           </>}

@@ -39,5 +39,7 @@ describe('Health API', () => {
     await request(app.getHttpServer()).post('/v1/auth/logout').expect(401);
     await request(app.getHttpServer()).get('/v1/checkout/sales').expect(401);
     await request(app.getHttpServer()).post('/v1/checkout/sales').send({}).expect(401);
+    await request(app.getHttpServer()).post('/v1/offline/prepare').send({}).expect(401);
+    await request(app.getHttpServer()).post('/v1/offline/sync-cash').send({}).expect(401);
   });
 });

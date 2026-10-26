@@ -89,11 +89,13 @@ export class AuthService {
   }
 
   async logout(user: AccessTokenPayload) {
+    await this.database.offlineGrant.updateMany({ where: { userId: user.sub, tenantId: user.tenantId }, data: { revokedAt: new Date() } });
     await this.database.session.updateMany({ where: { id: user.sid, userId: user.sub }, data: { revokedAt: new Date() } });
     return { message: 'Signed out' };
   }
 
   async logoutAll(user: AccessTokenPayload) {
+    await this.database.offlineGrant.updateMany({ where: { userId: user.sub }, data: { revokedAt: new Date() } });
     await this.database.session.updateMany({ where: { userId: user.sub }, data: { revokedAt: new Date() } });
     return { message: 'All sessions signed out' };
   }
