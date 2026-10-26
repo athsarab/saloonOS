@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { lockOffline } from '../offline/device';
 import { apiRequest, clearAccessToken, getAccessToken, getRefreshToken, setAccessToken, setRefreshToken } from './api';
 
 export type TenantChoice = { id: string; name: string; role: string };
@@ -34,6 +35,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ accessToken, tenants, hydrated: true });
   },
   logout: async () => {
+    await lockOffline();
     try {
       await apiRequest('/v1/auth/logout', { method: 'POST' });
     } finally {

@@ -32,15 +32,18 @@ export async function clearAccessToken() {
 }
 
 async function request(path: string, options: RequestInit, token: string | null) {
-  return fetch(`${env.apiUrl}${path}`, {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 12000);
+  try { return await fetch(`${env.apiUrl}${path}`, {
     ...options,
+    signal: options.signal ?? controller.signal,
     headers: {
       Accept: 'application/json',
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...options.headers,
     },
-  });
+  }); } finally { clearTimeout(timeout); }
 }
 
 export async function apiRequest<T>(path: string, options: RequestInit = {}, allowRefresh = true): Promise<T> {

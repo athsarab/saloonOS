@@ -4,7 +4,7 @@ import { Platform } from 'react-native';
 // Set enabled to false to use EXPO_PUBLIC_API_URL for a remote development API.
 const localApi = {
   enabled: true,
-  computerIp: '192.168.159.181',
+  computerIp: '10.68.40.181',
   port: 3000,
 } as const;
 

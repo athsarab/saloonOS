@@ -5,18 +5,35 @@ import { parse } from 'dotenv';
 import { DatabaseService } from '../src/database/database.service';
 import { CheckoutService } from '../src/checkout/checkout.service';
 import { CheckoutDto } from '../src/checkout/dto';
+import { OfflineService } from '../src/offline/offline.service';
+import type { AccessTokenPayload } from '../src/auth/auth.types';
+import type { SyncCashDto } from '../src/offline/dto';
 
 const run = process.env.CHECKOUT_DATABASE_TESTS === '1' ? describe : describe.skip;
 run('Checkout PostgreSQL transactions (isolated test business)', () => {
   jest.setTimeout(120000);
   let db: DatabaseService;
   let service: CheckoutService;
+  let offline: OfflineService;
   const tenantId = randomUUID(), ownerId = randomUUID(), cashierId = randomUUID();
   const branchId = randomUUID(), productId = randomUUID(), staffId = randomUUID(), serviceId = randomUUID();
+  const sessionId = randomUUID();
+  const actor: AccessTokenPayload = { sub: ownerId, tenantId, sid: sessionId, role: 'OWNER' };
+  const deviceSecret = 'a'.repeat(64);
+  async function prepareCash() {
+    const deviceId = randomUUID();
+    await offline.register(actor, { id: deviceId, name: 'Isolated test Android device' }, deviceSecret);
+    const snapshot = await offline.prepare(actor, { deviceId, branchId }, deviceSecret);
+    const dto: SyncCashDto = { operationId: randomUUID(), deviceId, grantId: snapshot.grantId, recordedAt: new Date().toISOString(), checkout: { ...cash(), expectedTotalLkr: '19.99' } };
+    return { snapshot, dto };
+  }
   const key = () => 'test-' + randomUUID();
   const cash = (quantity = '1'): CheckoutDto => ({ branchId, items: [{ itemId: productId, quantity, expectedUnitPriceLkr: '19.99' }], discountLkr: '0', paymentMethod: 'CASH', cashReceivedLkr: '100.00' });
   const pay = (input = cash(), request = key()) => service.checkout(tenantId, ownerId, request, input);
   async function clearTransactions() {
+    await db.offlineOperation.deleteMany({ where: { grant: { tenantId } } });
+    await db.offlineGrant.deleteMany({ where: { tenantId } });
+    await db.offlineDevice.deleteMany({ where: { tenantId } });
     await db.refund.deleteMany({ where: { tenantId } });
     await db.sale.deleteMany({ where: { tenantId } });
     await db.cashShift.deleteMany({ where: { tenantId } });
@@ -29,6 +46,7 @@ run('Checkout PostgreSQL transactions (isolated test business)', () => {
     db = new DatabaseService({ datasources: { db: { url } } });
     await db.$connect();
     service = new CheckoutService(db);
+    offline = new OfflineService(db, service);
     await db.user.createMany({ data: [
       { id: ownerId, email: 'pos-owner-' + ownerId + '@example.invalid', displayName: 'POS integration owner' },
       { id: cashierId, email: 'pos-cashier-' + cashierId + '@example.invalid', displayName: 'POS integration cashier' },
@@ -36,6 +54,7 @@ run('Checkout PostgreSQL transactions (isolated test business)', () => {
     await db.tenant.create({ data: { id: tenantId, name: 'POS integration only', slug: 'pos-test-' + tenantId } });
     await db.branch.create({ data: { id: branchId, tenantId, name: 'Test branch', code: 'TEST', timezone: 'Asia/Colombo' } });
     await db.membership.createMany({ data: [{ tenantId, userId: ownerId, role: 'OWNER' }, { tenantId, userId: cashierId, role: 'CASHIER' }] });
+    await db.session.create({ data: { id: sessionId, tenantId, userId: ownerId, tokenFamilyId: randomUUID(), refreshTokenHash: randomUUID(), expiresAt: new Date(Date.now() + 86400000) } });
     await db.staffProfile.create({ data: { id: staffId, tenantId, branchId, userId: ownerId } });
     await db.catalogItem.createMany({ data: [
       { id: productId, tenantId, name: 'Test shampoo', type: 'PRODUCT', category: 'Care', priceLkr: '19.99', trackInventory: true, stockQuantity: '3' },
@@ -180,4 +199,62 @@ run('Checkout PostgreSQL transactions (isolated test business)', () => {
     const input = cash(); input.items[0].itemId = randomUUID();
     await expect(pay(input)).rejects.toThrow('Catalog item not found');
   });
+  it('offline: concurrent repeated synchronization creates one server sale and consumes one budget unit', async () => {
+    const { dto } = await prepareCash();
+    const results = await Promise.all([offline.sync(actor, dto, deviceSecret), offline.sync(actor, dto, deviceSecret)]) as any[];
+    expect(results[0].state).toBe('synchronized');
+    expect(results[0].saleId).toBe(results[1].saleId);
+    expect(await db.sale.count({ where: { tenantId } })).toBe(1);
+    expect(await db.payment.count({ where: { tenantId } })).toBe(1);
+    expect((await db.offlineGrant.findUniqueOrThrow({ where: { id: dto.grantId } })).usedCount).toBe(1);
+    expect((await db.catalogItem.findUniqueOrThrow({ where: { id: productId } })).stockQuantity.toString()).toBe('2');
+  });
+
+  it('offline: changed catalog prices create an immutable conflict without charging or deducting stock', async () => {
+    const { dto } = await prepareCash();
+    await db.catalogItem.update({ where: { id: productId }, data: { priceLkr: '29.99' } });
+    const result = await offline.sync(actor, dto, deviceSecret) as any;
+    expect(result.state).toBe('conflicted');
+    expect(await db.sale.count({ where: { tenantId } })).toBe(0);
+    await db.catalogItem.update({ where: { id: productId }, data: { priceLkr: '19.99' } });
+    expect(await offline.sync(actor, dto, deviceSecret)).toEqual(result);
+    expect((await db.catalogItem.findUniqueOrThrow({ where: { id: productId } })).stockQuantity.toString()).toBe('3');
+  });
+
+  it('offline: expired recording windows and closed shifts are rejected or conflicted without inventing invoices', async () => {
+    const { dto, snapshot } = await prepareCash();
+    const expired = await offline.sync(actor, { ...dto, recordedAt: new Date(new Date(snapshot.expiresAt).getTime() + 1).toISOString() }, deviceSecret) as any;
+    expect(expired.state).toBe('rejected'); expect(expired.receiptNumber).toBeUndefined();
+    await db.cashShift.updateMany({ where: { tenantId, status: 'OPEN' }, data: { status: 'CLOSED' } });
+    const conflict = await offline.sync(actor, { ...dto, operationId: randomUUID() }, deviceSecret) as any;
+    expect(conflict.state).toBe('conflicted');
+    expect(await db.sale.count({ where: { tenantId } })).toBe(0);
+  });
+
+  it('offline: a server write failure leaves no sale or consumed budget and the same operation can retry', async () => {
+    const { dto } = await prepareCash();
+    const faultyDb = new Proxy(db, {
+      get(target, property) {
+        if (property === '$transaction') return (operation: any, options: any) => db.$transaction(tx => operation(new Proxy(tx, {
+          get(client, field) { return field === 'auditLog' ? { create: async () => { throw new Error('Injected offline sync failure'); } } : Reflect.get(client, field); },
+        })), options);
+        return Reflect.get(target, property);
+      },
+    });
+    const faulty = new OfflineService(faultyDb, service);
+    await expect(faulty.sync(actor, dto, deviceSecret)).rejects.toThrow('Injected offline sync failure');
+    expect(await db.sale.count({ where: { tenantId } })).toBe(0);
+    expect(await db.offlineOperation.count({ where: { grantId: dto.grantId } })).toBe(0);
+    expect((await db.offlineGrant.findUniqueOrThrow({ where: { id: dto.grantId } })).usedCount).toBe(0);
+    expect((await offline.sync(actor, dto, deviceSecret) as any).state).toBe('synchronized');
+    expect(await db.sale.count({ where: { tenantId } })).toBe(1);
+  });
+
+  it('offline: revoked registered devices cannot synchronize new cash operations', async () => {
+    const { dto } = await prepareCash();
+    await offline.revoke(actor, dto.deviceId);
+    expect((await offline.sync(actor, dto, deviceSecret) as any).state).toBe('rejected');
+    expect(await db.sale.count({ where: { tenantId } })).toBe(0);
+  });
+
 });

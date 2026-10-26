@@ -92,7 +92,7 @@ export class CheckoutService {
     });
   }
 
-  async checkout(tenantId: string, userId: string, key: string, dto: CheckoutDto) {
+  async checkout(tenantId: string, userId: string, key: string, dto: CheckoutDto, transactionClient?: Prisma.TransactionClient) {
     this.validateKey(key);
     const fingerprint = hash({ userId, branchId: dto.branchId, customerId: dto.customerId ?? null, items: dto.items.map(line => ({ itemId: line.itemId, quantity: line.quantity, staff: line.assignedStaffProfileId ?? null, price: line.expectedUnitPriceLkr ?? null })), discount: money(dto.discountLkr).toFixed(2), method: dto.paymentMethod, cash: dto.cashReceivedLkr ?? null, reference: dto.bankReference?.trim() ?? null, total: dto.expectedTotalLkr ?? null });
     const replay = (sale: SaleRecord) => {
@@ -135,7 +135,7 @@ export class CheckoutService {
         });
         await this.audit(tx, tenantId, userId, 'SALE_CREATED', 'Sale', sale.id, { receiptNumber: sale.receiptNumber, totalLkr: priced.total.toFixed(2), discountLkr: priced.discount.toFixed(2), paymentStatus: confirmed ? 'VERIFIED' : 'PENDING', items: priced.lines.map(line => ({ itemId: line.catalogItemId, quantity: String(line.quantity), unitPriceLkr: String(line.unitPriceLkr) })) });
         return this.serializeSale(sale);
-      });
+      }, false, transactionClient);
     } catch (error) {
       if (this.errorCode(error) === 'P2002') {
         const duplicate = await this.db.sale.findUnique({ where: { tenantId_idempotencyKey: { tenantId, idempotencyKey: key } }, include: includeSale });
@@ -329,7 +329,8 @@ export class CheckoutService {
     return { ...(start ? { gte: start } : {}), ...(end ? { lt: end } : {}) };
   }
   private errorCode(error: unknown) { return (error as { code?: string } | null)?.code; }
-  private async transaction<T>(operation: (tx: Tx) => Promise<T>, retryUnique = false): Promise<T> {
+  private async transaction<T>(operation: (tx: Tx) => Promise<T>, retryUnique = false, existing?: Tx): Promise<T> {
+    if (existing) return operation(existing);
     for (let attempt = 0; attempt < 4; attempt++) {
       try { return await this.db.$transaction(operation, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 20000, maxWait: 10000 }); }
       catch (error) { if (this.errorCode(error) !== 'P2034' && !(retryUnique && this.errorCode(error) === 'P2002')) throw error; }
