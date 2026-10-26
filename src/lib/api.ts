@@ -58,6 +58,14 @@ export async function apiRequest<T>(path: string, options: RequestInit = {}, all
       }
     }
   }
-  if (!response.ok) throw new ApiError(`Request failed with status ${response.status}`, response.status);
+  if (!response.ok) {
+    let message = response.status >= 500 ? 'The server could not complete this request. Please retry.' : `Request failed with status ${response.status}`;
+    try {
+      const body = await response.json() as { message?: unknown };
+      if (response.status < 500 && typeof body.message === 'string') message = body.message;
+      if (response.status < 500 && Array.isArray(body.message)) message = body.message.join('. ');
+    } catch { /* A proxy may return an empty or non-JSON error response. */ }
+    throw new ApiError(message, response.status);
+  }
   return response.json() as Promise<T>;
 }

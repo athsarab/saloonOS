@@ -50,6 +50,7 @@
     "api:test": "npm run test --workspace @salonos/api",
     "api:prisma:generate": "npm run prisma:generate --workspace @salonos/api",
     "api:prisma:migrate": "npm run prisma:migrate --workspace @salonos/api",
+    "api:pos:demo": "node apps/api/scripts/seed-pos-demo.cjs",
     "lint": "expo lint"
   }
 }

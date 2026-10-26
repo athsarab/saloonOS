@@ -1,5 +1,9 @@
 # SalonOS
 
+## Mobile POS checkout
+
+The Checkout and Sales tabs support online cash checkout, pending/verified bank transfers, receipts, refunds, inventory deduction, daily reports, and cash shifts. See [Android setup and acceptance checklist](./docs/POS_CHECKOUT.md) and [test results](./docs/POS_TEST_RESULTS.md).
+
 SalonOS is a React Native + Expo foundation for a multi-tenant salon POS. The current app is a UI and architecture foundation: authentication controls validate local form input but do not call a backend or create accounts.
 
 ## Stack
@@ -214,6 +218,39 @@ Manual checklist after configuring a real Neon database:
 12. Verify rate limiting with repeated login requests from the same client.
 
 Do not describe the deployment as production-ready until the real Neon migration, provider delivery, device testing, and the full checklist have passed.
+
+## Salon management module
+
+The first salon module is tenant-scoped and uses real PostgreSQL records:
+
+- Business profile and branches
+- Services with LKR `Decimal` prices and duration in minutes
+- Customers and appointment visit history
+- Staff profiles, weekly schedules, and time off
+- Appointments with server-calculated end times and stylist conflict checks
+- Dashboard appointment totals and upcoming schedule
+
+After configuring `DATABASE_URL` and `DIRECT_URL`, apply the additive migration from the repository root:
+
+```powershell
+npm run api:prisma:generate
+npm run api:prisma:migrate
+```
+
+Existing appointments may have no service association because the module migration keeps `Appointment.serviceId` nullable for backwards compatibility. New appointments always require an active service and the API calculates `endsAt`; clients must not calculate or trust this value.
+
+All appointment instants are sent as UTC ISO strings. The mobile dashboard and calendar display them in `Asia/Colombo`. The API derives the tenant from the authenticated membership, validates branch/customer/service/staff ownership, rejects time-off overlaps, and rejects overlapping active appointments for the same stylist.
+
+The intended end-to-end verification is:
+
+1. Register and verify a user, then select a tenant.
+2. Create a branch, service, customer, and staff profile through the authenticated salon endpoints.
+3. Add the stylist’s weekly schedule and create an appointment.
+4. Confirm it appears in the Dashboard and Appointments tabs.
+5. Reschedule it, attempt an overlapping booking, and confirm the API rejects the conflict.
+6. Cancel it and confirm the dashboard counters update.
+
+The migration and API build are safe to run before adding mobile write forms; no payment or offline appointment editing is included.
 
 ### Physical Android testing
 
