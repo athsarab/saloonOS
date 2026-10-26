@@ -2,10 +2,70 @@ generator client {
   provider = "prisma-client-js"
 }
 
+enum PaymentStatus {
+  PENDING
+  VERIFIED
+  FAILED
+  REFUNDED
+}
+
+enum RefundStatus {
+  COMPLETED
+  VOIDED
+}
+
+enum CashShiftStatus {
+  OPEN
+  CLOSED
+}
+
 datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
+}
+
+model Refund {
+  id          String       @id @default(uuid()) @db.Uuid
+  tenantId    String       @db.Uuid
+  saleId      String       @db.Uuid
+  amountLkr   Decimal      @db.Decimal(12, 2)
+  reason      String       @db.VarChar(255)
+  status      RefundStatus @default(COMPLETED)
+  createdByUserId String?  @db.Uuid
+  createdAt   DateTime     @default(now()) @db.Timestamptz(3)
+  idempotencyKey String    @db.VarChar(120)
+  requestHash String       @db.VarChar(64)
+  cashShiftId String?      @db.Uuid
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  sale        Sale         @relation(fields: [tenantId, saleId], references: [tenantId, id], onDelete: Cascade)
+  createdBy   User?        @relation("RefundCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  cashShift   CashShift?   @relation(fields: [tenantId, cashShiftId], references: [tenantId, id], onDelete: Restrict)
+  @@unique([tenantId, idempotencyKey])
+  @@index([tenantId, saleId, createdAt])
+}
+
+model CashShift {
+  id            String          @id @default(uuid()) @db.Uuid
+  tenantId      String          @db.Uuid
+  branchId      String          @db.Uuid
+  openedByUserId String         @db.Uuid
+  closedByUserId String?        @db.Uuid
+  openingAmountLkr Decimal       @db.Decimal(12, 2)
+  closingAmountLkr Decimal?      @db.Decimal(12, 2)
+  status        CashShiftStatus @default(OPEN)
+  openedAt      DateTime        @default(now()) @db.Timestamptz(3)
+  closedAt      DateTime?       @db.Timestamptz(3)
+  expectedClosingLkr Decimal?    @db.Decimal(12, 2)
+  differenceLkr Decimal?         @db.Decimal(12, 2)
+  tenant        Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch        Branch          @relation(fields: [tenantId, branchId], references: [tenantId, id], onDelete: Restrict)
+  openedBy      User            @relation("ShiftOpener", fields: [openedByUserId], references: [id], onDelete: Restrict)
+  closedBy      User?           @relation("ShiftCloser", fields: [closedByUserId], references: [id], onDelete: SetNull)
+  sales         Sale[]
+  refunds       Refund[]
+  @@unique([tenantId, id])
+  @@index([tenantId, branchId, status])
 }
 
 enum MembershipRole {
@@ -55,6 +115,10 @@ model User {
   staffProfiles StaffProfile[]
   sessions     Session[]
   auditLogs    AuditLog[]   @relation("AuditActor")
+  createdSales Sale[]       @relation("SaleCreator")
+  createdRefunds Refund[]   @relation("RefundCreator")
+  openedShifts CashShift[]  @relation("ShiftOpener")
+  closedShifts CashShift[]  @relation("ShiftCloser")
   emailVerificationTokens EmailVerificationToken[]
   passwordResetTokens PasswordResetToken[]
 }
@@ -74,10 +138,12 @@ model Tenant {
   sales        Sale[]
   saleLines    SaleLine[]
   payments     Payment[]
+  refunds      Refund[]
   sessions     Session[]
   auditLogs    AuditLog[]
   schedules    StaffSchedule[]
   timeOff      StaffTimeOff[]
+  cashShifts   CashShift[]
 }
 
 model Membership {
@@ -107,6 +173,7 @@ model Branch {
   sales        Sale[]
   schedules    StaffSchedule[]
   timeOff      StaffTimeOff[]
+  cashShifts   CashShift[]
   @@unique([tenantId, id])
   @@unique([tenantId, code])
   @@index([tenantId])
@@ -127,6 +194,7 @@ model StaffProfile {
   appointments Appointment[]
   schedules    StaffSchedule[]
   timeOff      StaffTimeOff[]
+  saleLines    SaleLine[]
   @@unique([tenantId, id])
   @@unique([tenantId, userId])
   @@index([tenantId, branchId])
@@ -160,6 +228,8 @@ model CatalogItem {
   priceLkr    Decimal         @db.Decimal(12, 2)
   durationMinutes Int?
   active      Boolean         @default(true)
+  trackInventory Boolean      @default(false)
+  stockQuantity Decimal        @default(0) @db.Decimal(10, 3)
   createdAt   DateTime        @default(now()) @db.Timestamptz(3)
   updatedAt   DateTime        @updatedAt @db.Timestamptz(3)
   tenant      Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -237,6 +307,13 @@ model Sale {
   taxLkr      Decimal     @default(0) @db.Decimal(12, 2)
   totalLkr    Decimal     @db.Decimal(12, 2)
   currency    String      @default("LKR") @db.Char(3)
+  receiptNumber String    @db.VarChar(40)
+  idempotencyKey String   @db.VarChar(120)
+  requestHash String     @db.VarChar(64)
+  cashShiftId String?    @db.Uuid
+  cashReceivedLkr Decimal? @db.Decimal(12, 2)
+  changeLkr Decimal?     @db.Decimal(12, 2)
+  createdByUserId String? @db.Uuid
   createdAt   DateTime    @default(now()) @db.Timestamptz(3)
   updatedAt   DateTime    @updatedAt @db.Timestamptz(3)
   tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -244,7 +321,12 @@ model Sale {
   customer    Customer?   @relation(fields: [tenantId, customerId], references: [tenantId, id], onDelete: Restrict)
   lines       SaleLine[]
   payments    Payment[]
+  refunds     Refund[]
+  createdBy   User?       @relation("SaleCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  cashShift   CashShift?  @relation(fields: [tenantId, cashShiftId], references: [tenantId, id], onDelete: Restrict)
   @@unique([tenantId, id])
+  @@unique([tenantId, receiptNumber])
+  @@unique([tenantId, idempotencyKey])
   @@index([tenantId, branchId, createdAt])
 }
 
@@ -256,10 +338,15 @@ model SaleLine {
   quantity      Decimal     @db.Decimal(10, 3)
   unitPriceLkr  Decimal     @db.Decimal(12, 2)
   lineTotalLkr  Decimal     @db.Decimal(12, 2)
+  itemName      String      @db.VarChar(160)
+  itemType      CatalogItemType
+  inventoryDeducted Boolean @default(false)
+  assignedStaffProfileId String? @db.Uuid
   createdAt     DateTime    @default(now()) @db.Timestamptz(3)
   tenant        Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   sale          Sale        @relation(fields: [tenantId, saleId], references: [tenantId, id], onDelete: Cascade)
   catalogItem   CatalogItem @relation(fields: [tenantId, catalogItemId], references: [tenantId, id], onDelete: Restrict)
+  assignedStaffProfile StaffProfile? @relation(fields: [tenantId, assignedStaffProfileId], references: [tenantId, id], onDelete: Restrict)
   @@index([tenantId, saleId])
 }
 
@@ -270,9 +357,13 @@ model Payment {
   amountLkr   Decimal       @db.Decimal(12, 2)
   method      PaymentMethod
   reference   String?       @db.VarChar(120)
+  status      PaymentStatus  @default(PENDING)
+  idempotencyKey String?    @db.VarChar(120)
   createdAt   DateTime      @default(now()) @db.Timestamptz(3)
+  verifiedAt  DateTime?     @db.Timestamptz(3)
   tenant      Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   sale        Sale          @relation(fields: [tenantId, saleId], references: [tenantId, id], onDelete: Cascade)
+  @@unique([tenantId, idempotencyKey])
   @@index([tenantId, saleId])
 }
 
