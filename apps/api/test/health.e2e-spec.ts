@@ -37,5 +37,7 @@ describe('Health API', () => {
 
   it('rejects protected requests without an access token', async () => {
     await request(app.getHttpServer()).post('/v1/auth/logout').expect(401);
+    await request(app.getHttpServer()).get('/v1/checkout/sales').expect(401);
+    await request(app.getHttpServer()).post('/v1/checkout/sales').send({}).expect(401);
   });
 });
