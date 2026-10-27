@@ -209,6 +209,11 @@ model Branch {
   name         String        @db.VarChar(160)
   code         String        @db.VarChar(40)
   address      String?       @db.VarChar(500)
+  receiptCounter Int @default(0)
+  stockPolicy String @default("REJECT") @db.VarChar(20)
+  prices BranchPrice[]
+  stocks StockBalance[]
+  movements InventoryMovement[]
   timezone     String        @default("Asia/Colombo") @db.VarChar(64)
   createdAt    DateTime      @default(now()) @db.Timestamptz(3)
   updatedAt    DateTime      @updatedAt @db.Timestamptz(3)
@@ -271,6 +276,11 @@ model CatalogItem {
   category    String?         @db.VarChar(80)
   type        CatalogItemType
   priceLkr    Decimal         @db.Decimal(12, 2)
+  taxRateBps Int @default(0)
+  taxLabel String @default("No tax") @db.VarChar(80)
+  prices BranchPrice[]
+  stocks StockBalance[]
+  movements InventoryMovement[]
   durationMinutes Int?
   active      Boolean         @default(true)
   trackInventory Boolean      @default(false)
@@ -352,7 +362,13 @@ model Sale {
   taxLkr      Decimal     @default(0) @db.Decimal(12, 2)
   totalLkr    Decimal     @db.Decimal(12, 2)
   currency    String      @default("LKR") @db.Char(3)
-  receiptNumber String    @db.VarChar(40)
+  receiptNumber String    @db.VarChar(80)
+  receiptSequence Int?
+  branchName String? @db.VarChar(160)
+  branchAddress String? @db.VarChar(500)
+  customerName String? @db.VarChar(170)
+  voidedAt DateTime? @db.Timestamptz(3)
+  voidReason String? @db.VarChar(255)
   idempotencyKey String   @db.VarChar(120)
   requestHash String     @db.VarChar(64)
   cashShiftId String?    @db.Uuid
@@ -371,6 +387,7 @@ model Sale {
   cashShift   CashShift?  @relation(fields: [tenantId, cashShiftId], references: [tenantId, id], onDelete: Restrict)
   @@unique([tenantId, id])
   @@unique([tenantId, receiptNumber])
+  @@unique([tenantId, branchId, receiptSequence])
   @@unique([tenantId, idempotencyKey])
   @@index([tenantId, branchId, createdAt])
 }
@@ -383,6 +400,10 @@ model SaleLine {
   quantity      Decimal     @db.Decimal(10, 3)
   unitPriceLkr  Decimal     @db.Decimal(12, 2)
   lineTotalLkr  Decimal     @db.Decimal(12, 2)
+  discountLkr Decimal @default(0) @db.Decimal(12,2)
+  taxRateBps Int @default(0)
+  taxLabel String @default("No tax") @db.VarChar(80)
+  taxLkr Decimal @default(0) @db.Decimal(12,2)
   itemName      String      @db.VarChar(160)
   itemType      CatalogItemType
   inventoryDeducted Boolean @default(false)
@@ -405,6 +426,7 @@ model Payment {
   status      PaymentStatus  @default(PENDING)
   idempotencyKey String?    @db.VarChar(120)
   createdAt   DateTime      @default(now()) @db.Timestamptz(3)
+  resolvedAt DateTime? @db.Timestamptz(3)
   verifiedAt  DateTime?     @db.Timestamptz(3)
   tenant      Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   sale        Sale          @relation(fields: [tenantId, saleId], references: [tenantId, id], onDelete: Cascade)
@@ -466,4 +488,50 @@ model AuditLog {
   actor       User?    @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
   @@index([tenantId, createdAt])
   @@index([tenantId, entityType, entityId])
+}
+
+model BranchPrice {
+  tenantId String @db.Uuid
+  branchId String @db.Uuid
+  itemId String @db.Uuid
+  priceLkr Decimal @db.Decimal(12,2)
+  taxRateBps Int @default(0)
+  taxLabel String @default("No tax") @db.VarChar(80)
+  active Boolean @default(true)
+  branch Branch @relation(fields:[tenantId,branchId],references:[tenantId,id],onDelete:Cascade)
+  item CatalogItem @relation(fields:[tenantId,itemId],references:[tenantId,id],onDelete:Cascade)
+  @@id([tenantId,branchId,itemId])
+}
+model StockBalance {
+  tenantId String @db.Uuid
+  branchId String @db.Uuid
+  itemId String @db.Uuid
+  quantity Decimal @default(0) @db.Decimal(10,3)
+  branch Branch @relation(fields:[tenantId,branchId],references:[tenantId,id],onDelete:Cascade)
+  item CatalogItem @relation(fields:[tenantId,itemId],references:[tenantId,id],onDelete:Restrict)
+  @@id([tenantId,branchId,itemId])
+}
+model InventoryMovement {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @db.Uuid
+  branchId String @db.Uuid
+  itemId String @db.Uuid
+  delta Decimal @db.Decimal(10,3)
+  balanceAfter Decimal @db.Decimal(10,3)
+  kind String @db.VarChar(32)
+  reason String @db.VarChar(255)
+  actorUserId String? @db.Uuid
+  saleId String? @db.Uuid
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  branch Branch @relation(fields:[tenantId,branchId],references:[tenantId,id],onDelete:Restrict)
+  item CatalogItem @relation(fields:[tenantId,itemId],references:[tenantId,id],onDelete:Restrict)
+  @@index([tenantId,branchId,createdAt])
+}
+model FinancialCommand {
+  tenantId String @db.Uuid
+  key String @db.VarChar(120)
+  requestHash String @db.VarChar(64)
+  result Json
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  @@id([tenantId,key])
 }
