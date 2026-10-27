@@ -5,6 +5,7 @@ import { parse } from 'dotenv';
 import { DatabaseService } from '../src/database/database.service';
 import { CheckoutService } from '../src/checkout/checkout.service';
 import { CheckoutDto } from '../src/checkout/dto';
+import { PosService } from '../src/checkout/pos.service';
 import { OfflineService } from '../src/offline/offline.service';
 import type { AccessTokenPayload } from '../src/auth/auth.types';
 import type { SyncCashDto } from '../src/offline/dto';
@@ -15,6 +16,7 @@ run('Checkout PostgreSQL transactions (isolated test business)', () => {
   let db: DatabaseService;
   let service: CheckoutService;
   let offline: OfflineService;
+  let pos: PosService;
   const tenantId = randomUUID(), ownerId = randomUUID(), cashierId = randomUUID();
   const branchId = randomUUID(), productId = randomUUID(), staffId = randomUUID(), serviceId = randomUUID();
   const sessionId = randomUUID();
@@ -34,6 +36,10 @@ run('Checkout PostgreSQL transactions (isolated test business)', () => {
     await db.offlineOperation.deleteMany({ where: { grant: { tenantId } } });
     await db.offlineGrant.deleteMany({ where: { tenantId } });
     await db.offlineDevice.deleteMany({ where: { tenantId } });
+    await db.inventoryMovement.deleteMany({ where: { tenantId } });
+    await db.stockBalance.deleteMany({ where: { tenantId } });
+    await db.branchPrice.deleteMany({ where: { tenantId } });
+    await db.financialCommand.deleteMany({ where: { tenantId } });
     await db.refund.deleteMany({ where: { tenantId } });
     await db.sale.deleteMany({ where: { tenantId } });
     await db.cashShift.deleteMany({ where: { tenantId } });
@@ -47,6 +53,7 @@ run('Checkout PostgreSQL transactions (isolated test business)', () => {
     await db.$connect();
     service = new CheckoutService(db);
     offline = new OfflineService(db, service);
+    pos = new PosService(db);
     await db.user.createMany({ data: [
       { id: ownerId, email: 'pos-owner-' + ownerId + '@example.invalid', displayName: 'POS integration owner' },
       { id: cashierId, email: 'pos-cashier-' + cashierId + '@example.invalid', displayName: 'POS integration cashier' },
@@ -64,6 +71,7 @@ run('Checkout PostgreSQL transactions (isolated test business)', () => {
   beforeEach(async () => {
     await clearTransactions();
     await db.catalogItem.update({ where: { id: productId }, data: { stockQuantity: '3', priceLkr: '19.99', name: 'Test shampoo' } });
+    await db.branch.update({ where: { id: branchId }, data: { stockPolicy: 'REJECT' } });
     await service.openShift(tenantId, ownerId, { branchId, openingAmountLkr: '200.00' });
   });
   afterAll(async () => {
@@ -81,7 +89,7 @@ run('Checkout PostgreSQL transactions (isolated test business)', () => {
     expect(result.changeLkr?.toFixed(2)).toBe('60.26');
     expect((await db.catalogItem.findUniqueOrThrow({ where: { id: productId } })).stockQuantity.toString()).toBe('1');
     expect(result.payments[0].status).toBe('VERIFIED');
-    expect(result.receiptNumber).toMatch(/^SAL-[A-F0-9]{32}$/);
+    expect(result.receiptNumber).toMatch(/^TEST-\d{6,}$/);
   });
 
   it('concurrent identical requests create one sale, one payment, one stock deduction', async () => {
@@ -255,6 +263,82 @@ run('Checkout PostgreSQL transactions (isolated test business)', () => {
     await offline.revoke(actor, dto.deviceId);
     expect((await offline.sync(actor, dto, deviceSecret) as any).state).toBe('rejected');
     expect(await db.sale.count({ where: { tenantId } })).toBe(0);
+  });
+
+  it('normal cash checkout writes one stock movement and a sequential receipt', async () => {
+    const first = await pay(), second = await pay();
+    expect(second.receiptSequence).toBe(first.receiptSequence! + 1);
+    expect(await db.inventoryMovement.count({where:{tenantId,kind:'SALE'}})).toBe(2);
+    expect((await db.stockBalance.findFirstOrThrow({where:{tenantId,branchId,itemId:productId}})).quantity.toFixed(0)).toBe('1');
+  });
+  it.each(['0','-1','1.5','1000000'])('rejects invalid quantity %s with no financial writes', async quantity => {
+    await expect(pay(cash(quantity))).rejects.toThrow('Quantity');
+    expect(await db.sale.count({where:{tenantId}})).toBe(0);
+    expect(await db.payment.count({where:{tenantId}})).toBe(0);
+  });
+  it('applies branch prices, deterministic discount allocation and immutable tax snapshots', async () => {
+    await pos.price(tenantId,ownerId,branchId,productId,{priceLkr:'20.01',taxRateBps:1800,taxLabel:'Demo tax',active:true});
+    const result=await pay({...cash(),items:[{itemId:productId,quantity:'1',expectedUnitPriceLkr:'20.01'}],discountLkr:'0.02',expectedTotalLkr:'23.59'});
+    expect(result.taxLkr).toBe('3.60'); expect(result.totalLkr).toBe('23.59');
+    expect(result.lines[0].discountLkr.toFixed(2)).toBe('0.02');
+    await pos.price(tenantId,ownerId,branchId,productId,{priceLkr:'30',taxRateBps:0,taxLabel:'Changed',active:true});
+    const receipt=await service.receipt(tenantId,result.id);expect(receipt.lines[0].taxRateBps).toBe(1800);expect(receipt.lines[0].unitPriceLkr.toFixed(2)).toBe('20.01');
+    await expect(pay()).rejects.toThrow('price changed');
+  });
+  it('voids unpaid external sales once, releases stock, and rejects cashier voids', async () => {
+    const sale=await pay({...cash(),paymentMethod:'CARD',bankReference:key()});const request=key();
+    await expect(pos.void(tenantId,cashierId,sale.id,key(),{reason:'Mistake'})).rejects.toThrow('permissions');
+    await pos.void(tenantId,ownerId,sale.id,request,{reason:'Customer cancelled'});
+    await pos.void(tenantId,ownerId,sale.id,request,{reason:'Customer cancelled'});
+    expect(await db.inventoryMovement.count({where:{tenantId,kind:'VOID'}})).toBe(1);
+    expect((await service.receipt(tenantId,sale.id)).status).toBe('VOIDED');
+    const paid=await pay();await expect(pos.void(tenantId,ownerId,paid.id,key(),{reason:'Paid already'})).rejects.toThrow('Only unpaid');
+  });
+  it('enforces cashier branch assignment for writes and receipt/history reads',async()=>{
+    const sale=await pay();
+    await expect(service.checkout(tenantId,cashierId,key(),cash())).rejects.toThrow('assigned');
+    await expect(service.receipt(tenantId,sale.id,cashierId)).rejects.toThrow('assigned');
+    expect((await service.sales(tenantId,{limit:30,offset:0},cashierId)).total).toBe(0);
+    await expect(pos.catalog(tenantId,cashierId,branchId)).rejects.toThrow('assigned');
+  });
+  it('enforces stock rejection or an audited explicit negative-stock policy',async()=>{
+    await expect(pay({...cash('4'),cashReceivedLkr:'100'})).rejects.toThrow('Insufficient stock');
+    await pos.policy(tenantId,ownerId,branchId,'ALLOW_NEGATIVE');await pay(cash('4'));
+    expect((await db.stockBalance.findFirstOrThrow({where:{tenantId,itemId:productId}})).quantity.toFixed(0)).toBe('-1');
+    expect(await db.auditLog.count({where:{tenantId,action:'STOCK_POLICY_CHANGED'}})).toBe(1);
+  });
+  it('keeps a report cutoff deterministic after later verification and refunds',async()=>{
+    const cashSale=await pay();const transfer=await pay({...cash(),paymentMethod:'BANK_TRANSFER',bankReference:key()});
+    const original=await service.report(tenantId,{branchId,limit:30,offset:0});
+    await service.refund(tenantId,ownerId,cashSale.id,{amountLkr:'5.00',reason:'Adjustment'},key());
+    const request=key();await service.verifyTransfer(tenantId,ownerId,transfer.payments[0].id,{status:'VERIFIED',note:'Funds checked'},request);
+    await service.verifyTransfer(tenantId,ownerId,transfer.payments[0].id,{status:'VERIFIED',note:'Funds checked'},request);
+    const noopKey=key(); await service.verifyTransfer(tenantId,ownerId,transfer.payments[0].id,{status:'VERIFIED',note:'Already checked'},noopKey);
+    await expect(service.verifyTransfer(tenantId,ownerId,transfer.payments[0].id,{status:'VERIFIED',note:'Changed note'},noopKey)).rejects.toThrow('key already used');
+    const same=await service.report(tenantId,{branchId,limit:30,offset:0,asOf:original.asOf});
+    expect(same).toEqual(original);
+    const updated=await service.report(tenantId,{branchId,limit:30,offset:0});expect(updated.collectedLkr).toBe('39.98');expect(updated.refundsLkr).toBe('5.00');expect(updated.salesCount).toBe(2);
+  });
+  it('idempotent stock adjustments cannot be replayed as another command',async()=>{
+    const request=key(),dto={branchId,itemId:productId,delta:'2',reason:'Delivery received'};
+    await pos.adjust(tenantId,ownerId,request,dto);await pos.adjust(tenantId,ownerId,request,dto);
+    expect((await db.stockBalance.findFirstOrThrow({where:{tenantId,itemId:productId}})).quantity.toFixed(0)).toBe('5');
+    await expect(pos.adjust(tenantId,ownerId,request,{...dto,delta:'3'})).rejects.toThrow('another operation');
+    expect(await db.inventoryMovement.count({where:{tenantId,kind:'ADJUSTMENT'}})).toBe(1);
+  });
+
+  it('isolates prices and stock between two branches of the same business', async()=>{
+    const secondBranch=randomUUID();
+    try {
+      await db.branch.create({data:{id:secondBranch,tenantId,name:'Kandy test branch',code:'KDY'}});
+      await db.stockBalance.createMany({data:[{tenantId,branchId,itemId:productId,quantity:'3'},{tenantId,branchId:secondBranch,itemId:productId,quantity:'5'}]});
+      await pos.price(tenantId,ownerId,secondBranch,productId,{priceLkr:'29.99',taxRateBps:0,taxLabel:'No tax',active:true});
+      await service.openShift(tenantId,ownerId,{branchId:secondBranch,openingAmountLkr:'100'});
+      const first=await pay();const second=await pay({...cash('2'),branchId:secondBranch,items:[{itemId:productId,quantity:'2',expectedUnitPriceLkr:'29.99'}]});
+      expect(first.totalLkr).toBe('19.99');expect(second.totalLkr).toBe('59.98');expect(second.receiptNumber).toBe('KDY-000001');
+      expect((await pos.catalog(tenantId,ownerId,branchId)).find(i=>i.id===productId)!.stockQuantity).toBe('2');
+      expect((await pos.catalog(tenantId,ownerId,secondBranch)).find(i=>i.id===productId)!.stockQuantity).toBe('3');
+    } finally {await clearTransactions();await db.branch.deleteMany({where:{id:secondBranch,tenantId}});}
   });
 
 });
