@@ -1,0 +1,94 @@
+import { test, expect } from '@playwright/test';
+import { PrismaClient } from '@prisma/client';
+import { randomUUID, randomBytes } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { parse } from 'dotenv';
+import argon2 from 'argon2';
+
+const config = parse(readFileSync(path.resolve(__dirname, '../../api/.env')));
+const db = new PrismaClient({ datasources: { db: { url: process.env.POS_TEST_DATABASE_URL || config.DATABASE_URL } } });
+const tenantId = randomUUID(), otherTenant = randomUUID(), branchId = randomUUID(), otherBranch = randomUUID(), userId = randomUUID(), cashierId = randomUUID();
+const password = randomBytes(18).toString('hex') + '1!';
+const email = 'phase4-browser-' + userId + '@example.invalid';
+let productId: string;
+test.beforeAll(async () => {
+  test.setTimeout(120000);
+  await db.tenant.createMany({ data: [{ id: tenantId, name: 'Serendib Browser Test', slug: 'browser-' + tenantId }, { id: otherTenant, name: 'Other Browser Test', slug: 'browser-' + otherTenant }] });
+  const passwordHash = await argon2.hash(password);
+  await db.user.createMany({ data: [{ id: userId, email, displayName: 'Nethmi Test', passwordHash, emailVerifiedAt: new Date() }, { id: cashierId, email: 'cashier-' + email, displayName: 'Cashier Test', passwordHash, emailVerifiedAt: new Date() }] });
+  await db.membership.createMany({ data: [{ tenantId, userId, role: 'OWNER' }, { tenantId, userId: cashierId, role: 'CASHIER' }] });
+  await db.branch.createMany({ data: [{ id: branchId, tenantId, name: 'Colombo Browser Studio', code: 'BROWSER' }, { id: otherBranch, tenantId: otherTenant, name: 'Other branch', code: 'OTHER' }] });
+  await db.staffProfile.createMany({ data: [{ tenantId, userId, branchId }, { tenantId, userId: cashierId, branchId }] });
+  const item = await db.catalogItem.create({ data: { tenantId, name: 'Coconut Repair Shampoo', category: 'Hair care', type: 'PRODUCT', priceLkr: '1850', trackInventory: true, stockQuantity: '10' } }); productId = item.id;
+  await db.catalogItem.create({ data: { tenantId, name: 'Precision Haircut', category: 'Hair', type: 'SERVICE', priceLkr: '2500' } });
+  await db.customer.create({ data: { tenantId, firstName: 'Sanduni', lastName: 'Perera', phone: '0770000001' } });
+});
+test.afterAll(async () => {
+  await db.inventoryMovement.deleteMany({ where: { tenantId } });
+  await db.stockBalance.deleteMany({ where: { tenantId } });
+  await db.sale.deleteMany({ where: { tenantId } });
+  await db.cashShift.deleteMany({ where: { tenantId } });
+  await db.tenant.deleteMany({ where: { id: { in: [tenantId, otherTenant] } } });
+  await db.user.deleteMany({ where: { id: { in: [userId, cashierId] } } });
+  await db.$disconnect();
+});
+async function login(page: import('@playwright/test').Page, account = email) {
+  await page.goto('/login'); await page.getByLabel('Email address').fill(account); await page.getByLabel('Password', { exact: true }).fill(password); await page.getByRole('button', { name: 'Sign in to SalonOS' }).click(); await expect(page.getByRole('heading', { name: 'A smooth finish.' })).toBeVisible();
+}
+test('desktop: cash checkout, receipt, history, partial refund, and reconciliation', async ({ page, context }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 }); await login(page);
+  await page.getByRole('button', { name: 'Cash shift', exact: true }).click();
+  await page.getByLabel('Opening float (LKR)').fill('5000'); await page.getByRole('button', { name: 'Open cash shift' }).click();
+  await expect(page.getByText('Cash shift is open.', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Checkout', exact: true }).click();
+  await page.getByRole('button').filter({ has: page.getByRole('heading', { name: 'Coconut Repair Shampoo', exact: true }) }).click();
+  await page.getByRole('button').filter({ has: page.getByRole('heading', { name: 'Precision Haircut', exact: true }) }).click();
+  await page.getByRole('combobox', { name: /^Customer/ }).selectOption({ label: 'Sanduni Perera 0770000001' });
+  await page.getByRole('button', { name: 'Review total' }).click();
+  await expect(page.getByText('LKR 4,350.00', { exact: true })).toBeVisible();
+  await page.getByLabel('Cash received (LKR)').fill('5000');
+  await page.getByRole('button', { name: 'Confirm cash payment' }).click();
+  await expect(page.getByRole('heading', { name: 'All taken care of.' })).toBeVisible({ timeout: 30000 });
+  const receiptLink = page.getByRole('link', { name: 'View / print receipt' });
+  const receipt = await context.newPage(); await receipt.goto((await receiptLink.getAttribute('href'))!);
+  await expect(receipt.getByRole('heading', { name: 'Colombo Browser Studio' })).toBeVisible();
+  await expect(receipt.getByText('LKR 4,350.00', { exact: true })).toBeVisible();
+  await receipt.emulateMedia({ media: 'print' }); await expect(receipt.getByRole('button', { name: 'Print / save PDF' })).toBeHidden(); await receipt.close();
+  await page.getByRole('button', { name: 'Start a new sale' }).click();
+  await page.getByRole('button', { name: 'Sales', exact: true }).click(); await page.getByRole('button', { name: 'View', exact: true }).first().click();
+  await page.getByLabel('Refund amount (LKR)').fill('350'); await page.getByLabel('Reason', { exact: true }).fill('Customer goodwill'); await page.getByRole('button', { name: 'Record refund' }).click();
+  await expect(page.getByText('Available: LKR 4,000.00')).toBeVisible();
+  await page.keyboard.press('Escape'); await page.getByRole('button', { name: 'Cash shift', exact: true }).click();
+  await expect(page.getByText('LKR 9,000.00', { exact: true })).toBeVisible();
+  await page.getByLabel('Counted cash (LKR)').fill('9000'); await page.getByRole('button', { name: 'Close & reconcile shift' }).click();
+  await expect(page.getByText('Shift closed. Difference: LKR 0.00')).toBeVisible();
+  expect(await db.sale.count({ where: { tenantId } })).toBe(1);
+  expect((await db.stockBalance.findFirstOrThrow({ where: { tenantId, itemId: productId } })).quantity.toFixed(0)).toBe('9');
+  await page.screenshot({ path: 'test-results/desktop-shift.png', fullPage: true });
+});
+test('mobile: bottom-sheet cart and unverified external payment, then authorized void', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 }); await login(page);
+  await page.getByRole('button').filter({ has: page.getByRole('heading', { name: 'Coconut Repair Shampoo', exact: true }) }).click();
+  await page.getByRole('button', { name: /View cart/ }).click();
+  await page.getByLabel('Payment method').selectOption('BANK_TRANSFER');
+  await page.getByRole('button', { name: 'Review total' }).click(); await page.getByLabel('Payment reference').fill('BROWSER-' + randomUUID());
+  await page.screenshot({ path: 'test-results/mobile-payment.png', fullPage: true });
+  await page.getByRole('button', { name: 'Record pending payment' }).click();
+  await expect(page.getByRole('heading', { name: 'Payment awaits a check.' })).toBeVisible({ timeout: 30000 });
+  await page.getByRole('button', { name: 'Start a new sale' }).click();
+  await page.getByRole('button', { name: 'Sales', exact: true }).click(); await page.getByRole('button', { name: 'View', exact: true }).first().click();
+  await page.getByRole('textbox', { name: 'Reason', exact: true }).fill('Customer cancelled'); await page.getByRole('button', { name: 'Void sale & release stock' }).click();
+  await expect(page.getByText(/VOIDED/).first()).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});
+test('BFF: hides tokens, blocks CSRF and cross-tenant access; cashier cannot refund', async ({ page }) => {
+  await login(page, 'cashier-' + email);
+  const cookies = await page.context().cookies(); expect(cookies.filter(c => c.name.startsWith('salonos_')).every(c => c.httpOnly)).toBe(true);
+  const cross = await page.request.get('/api/backend/pos/catalog?branchId=' + otherBranch); expect([403,404]).toContain(cross.status());
+  const created = await page.request.post('/api/backend/checkout/sales', { headers: { origin: 'http://localhost:3001', 'idempotency-key': randomUUID() }, data: { branchId, items: [{ itemId: productId, quantity: '1', expectedUnitPriceLkr: '1850.00' }], discountLkr: '0', paymentMethod: 'BANK_TRANSFER', bankReference: randomUUID() } });
+  expect(created.status()).toBe(201); const sale = await created.json();
+  const denied = await page.request.post('/api/backend/checkout/sales/' + sale.id + '/refunds', { headers: { origin: 'http://localhost:3001', 'idempotency-key': randomUUID() }, data: { amountLkr: '1', reason: 'Forbidden' } }); expect(denied.status()).toBe(403);
+  const csrf = await page.request.post('/api/backend/pos/customers', { headers: { origin: 'http://attacker.invalid' }, data: { firstName: 'Attacker' } }); expect(csrf.status()).toBe(403);
+  await expect(page.getByLabel('Order discount (LKR)')).toBeHidden();
+});
