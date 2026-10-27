@@ -21,6 +21,7 @@ export class CheckoutDto {
   @IsOptional() @Matches(moneyPattern) expectedTotalLkr?: string;
 }
 export class SalesQueryDto {
+  @IsOptional() @IsDateString() asOf?: string;
   @IsOptional() @IsUUID() branchId?: string;
   @IsOptional() @IsDateString() from?: string;
   @IsOptional() @IsDateString() to?: string;
