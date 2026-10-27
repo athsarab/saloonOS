@@ -1,10 +1,11 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { CatalogItemType, PaymentMethod, PaymentStatus, Prisma, SaleStatus } from '@prisma/client';
+import { CatalogItemType, PaymentMethod, Prisma } from '@prisma/client';
 import { createHash, randomUUID } from 'node:crypto';
 import { DatabaseService } from '../database/database.service';
 import { Permission, ROLE_PERMISSIONS } from '../auth/auth.constants';
 import { CatalogDto, CheckoutDto, CloseShiftDto, OpenShiftDto, RefundDto, SalesQueryDto, VerifyTransferDto } from './dto';
 import { money, zero } from './money';
+import { allocateDiscount, ensureStock, moveStock, permittedBranches, requireBranch } from './pos-core';
 
 const includeSale = {
   lines: { include: { assignedStaffProfile: { include: { user: { select: { displayName: true } } } } } },
@@ -30,7 +31,10 @@ export class CheckoutService {
       const price = money(dto.priceLkr);
       if (price.lte(0)) throw new BadRequestException('Price must be positive');
       if (!/^\d{1,7}$/.test(dto.stockQuantity)) throw new BadRequestException('Stock must be a nonnegative whole number');
+      const branches = await tx.branch.findMany({ where: { tenantId }, select: { id: true } });
+      if (branches.length !== 1 && new Prisma.Decimal(dto.stockQuantity).gt(0)) throw new BadRequestException('Create with zero stock, then record stock for each branch');
       const item = await tx.catalogItem.create({ data: { tenantId, name: dto.name.trim(), category: dto.category?.trim(), type: dto.type, priceLkr: price, trackInventory: dto.type === 'PRODUCT' && dto.trackInventory, stockQuantity: dto.stockQuantity } });
+      if (item.trackInventory && branches.length === 1) await ensureStock(tx, tenantId, branches[0].id, item.id);
       await this.audit(tx, tenantId, userId, 'CATALOG_CREATED', 'CatalogItem', item.id, { stockQuantity: dto.stockQuantity, priceLkr: price.toFixed(2) });
       return item;
     });
@@ -38,7 +42,8 @@ export class CheckoutService {
   async customers(tenantId: string, search?: string) {
     return this.db.customer.findMany({ where: { tenantId, ...(search ? { OR: [{ firstName: { contains: search, mode: 'insensitive' as const } }, { lastName: { contains: search, mode: 'insensitive' as const } }, { phone: { contains: search } }] } : {}) }, orderBy: { firstName: 'asc' }, take: 50 });
   }
-  async staff(tenantId: string, branchId: string) {
+  async staff(tenantId: string, branchId: string, userId?: string) {
+    if (userId) await requireBranch(this.db, tenantId, userId, branchId);
     return this.db.staffProfile.findMany({ where: { tenantId, branchId, active: true }, include: { user: { select: { id: true, displayName: true } } }, orderBy: { user: { displayName: 'asc' } } });
   }
   async access(tenantId: string, userId: string) {
@@ -51,19 +56,28 @@ export class CheckoutService {
     await this.authorize(tx, tenantId, userId, Permission.CHECKOUT);
     const discount = money(dto.discountLkr);
     if (discount.gt(0)) await this.authorize(tx, tenantId, userId, Permission.DISCOUNTS);
-    if (![PaymentMethod.CASH, PaymentMethod.BANK_TRANSFER].includes(dto.paymentMethod as 'CASH' | 'BANK_TRANSFER')) throw new BadRequestException('Only cash and bank transfer are supported');
-    const branch = await tx.branch.findFirst({ where: { id: dto.branchId, tenantId } });
+    if (!Object.values(PaymentMethod).includes(dto.paymentMethod)) throw new BadRequestException('Unsupported payment method');
+    const branch = await requireBranch(tx, tenantId, userId, dto.branchId);
     if (!branch) throw new NotFoundException('Branch not found');
     if (dto.customerId && !await tx.customer.findFirst({ where: { id: dto.customerId, tenantId } })) throw new NotFoundException('Customer not found');
     if (!Array.isArray(dto.items) || !dto.items.length || dto.items.length > 100) throw new BadRequestException('Select 1 to 100 items');
     const ids = dto.items.map(line => line.itemId);
     const items = await tx.catalogItem.findMany({ where: { tenantId, active: true, id: { in: ids } } });
-    const itemMap = new Map(items.map(item => [item.id, item]));
+    const overrides = await tx.branchPrice.findMany({ where: { tenantId, branchId: dto.branchId, itemId: { in: ids } } });
+    const itemMap = new Map(items.map(item => { const override = overrides.find(p => p.itemId === item.id); return [item.id, override ? { ...item, ...override } : item]; }));
     let subtotal = zero();
     const lines: Prisma.SaleLineUncheckedCreateWithoutSaleInput[] = [];
+    const grouped = new Map<string, typeof dto.items[number]>();
     for (const input of dto.items) {
+      if (!/^[1-9]\d{0,5}$/.test(input.quantity)) throw new BadRequestException('Quantity must be a positive whole number');
+      const key = input.itemId + ':' + (input.assignedStaffProfileId ?? '');
+      const previous = grouped.get(key);
+      if (previous && previous.expectedUnitPriceLkr !== input.expectedUnitPriceLkr) throw new BadRequestException('Conflicting expected prices for an item');
+      grouped.set(key, { ...input, quantity: previous ? new Prisma.Decimal(previous.quantity).add(input.quantity).toFixed(0) : input.quantity });
+    }
+    for (const input of [...grouped.values()].sort((a,b) => (a.itemId + (a.assignedStaffProfileId ?? '')).localeCompare(b.itemId + (b.assignedStaffProfileId ?? '')))) {
       const item = itemMap.get(input.itemId);
-      if (!item) throw new NotFoundException('Catalog item not found');
+      if (!item || !item.active) throw new NotFoundException('Catalog item not found');
       if (!/^[1-9]\d{0,5}$/.test(input.quantity)) throw new BadRequestException('Quantity must be a positive whole number');
       const quantity = new Prisma.Decimal(input.quantity);
       const unitPrice = money(item.priceLkr);
@@ -75,20 +89,27 @@ export class CheckoutService {
       }
       const lineTotal = money(unitPrice.mul(quantity));
       subtotal = subtotal.add(lineTotal);
-      lines.push({ catalogItemId: item.id, itemName: item.name, itemType: item.type, inventoryDeducted: item.type === 'PRODUCT' && item.trackInventory, quantity, unitPriceLkr: unitPrice, lineTotalLkr: lineTotal, assignedStaffProfileId: input.assignedStaffProfileId });
+      lines.push({ catalogItemId: item.id, itemName: item.name, itemType: item.type, inventoryDeducted: item.type === 'PRODUCT' && item.trackInventory, quantity, unitPriceLkr: unitPrice, lineTotalLkr: lineTotal, assignedStaffProfileId: input.assignedStaffProfileId, taxRateBps: item.taxRateBps, taxLabel: item.taxLabel });
     }
     money(subtotal);
     if (discount.gt(subtotal)) throw new BadRequestException('Discount cannot exceed subtotal');
-    const total = subtotal.sub(discount);
+    const allocated = allocateDiscount(lines.map(l => ({ key: l.catalogItemId + ':' + (l.assignedStaffProfileId ?? ''), gross: new Prisma.Decimal(l.lineTotalLkr as Prisma.Decimal) })), discount);
+    let tax = zero();
+    lines.forEach((line, index) => {
+      const net = new Prisma.Decimal(line.lineTotalLkr as Prisma.Decimal).sub(allocated[index]);
+      const lineTax = net.mul(line.taxRateBps ?? 0).div(10000).toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
+      line.discountLkr = allocated[index]; line.taxLkr = lineTax; line.lineTotalLkr = net.add(lineTax); tax = tax.add(lineTax);
+    });
+    const total = money(subtotal.sub(discount).add(tax));
     if (total.lte(0)) throw new BadRequestException('Total must be greater than zero');
     if (dto.expectedTotalLkr !== undefined && !total.eq(money(dto.expectedTotalLkr))) throw new ConflictException('Total changed. Review the latest quote before paying.');
-    return { branch, subtotal, discount, total, lines };
+    return { branch, subtotal, discount, tax, total, lines };
   }
 
   async quote(tenantId: string, userId: string, dto: CheckoutDto) {
     return this.transaction(async tx => {
       const priced = await this.priceCart(tx, tenantId, userId, dto);
-      return { subtotalLkr: priced.subtotal.toFixed(2), discountLkr: priced.discount.toFixed(2), totalLkr: priced.total.toFixed(2) };
+      return { subtotalLkr: priced.subtotal.toFixed(2), discountLkr: priced.discount.toFixed(2), taxLkr: priced.tax.toFixed(2), totalLkr: priced.total.toFixed(2) };
     });
   }
 
@@ -103,7 +124,7 @@ export class CheckoutService {
       return await this.transaction(async tx => {
         await this.authorize(tx, tenantId, userId, Permission.CHECKOUT);
         const existing = await tx.sale.findUnique({ where: { tenantId_idempotencyKey: { tenantId, idempotencyKey: key } }, include: includeSale });
-        if (existing) return replay(existing);
+        if (existing) { await requireBranch(tx, tenantId, userId, existing.branchId); return replay(existing); }
         const priced = await this.priceCart(tx, tenantId, userId, dto);
         let cashShiftId: string | undefined;
         let cash: Prisma.Decimal | undefined;
@@ -114,23 +135,23 @@ export class CheckoutService {
           cash = dto.cashReceivedLkr === undefined ? undefined : money(dto.cashReceivedLkr);
           if (!cash || cash.lt(priced.total)) throw new BadRequestException('Enter cash received covering the total');
         } else if (!dto.bankReference?.trim()) throw new BadRequestException('Bank reference is required');
-        // Conditional decrements and SERIALIZABLE isolation protect concurrent stock sales.
-        for (const line of priced.lines) {
-          if (line.inventoryDeducted) {
-            const changed = await tx.catalogItem.updateMany({ where: { id: line.catalogItemId, tenantId, stockQuantity: { gte: line.quantity } }, data: { stockQuantity: { decrement: line.quantity } } });
-            if (changed.count !== 1) throw new ConflictException('Insufficient stock for ' + line.itemName);
-          }
+        const saleId = randomUUID();
+        for (const line of priced.lines) if (line.inventoryDeducted) {
+          await moveStock(tx, tenantId, dto.branchId, line.catalogItemId, new Prisma.Decimal(line.quantity as Prisma.Decimal).neg(), 'SALE', 'Checkout', userId, saleId);
         }
+        const sequence = await tx.branch.update({ where: { id: dto.branchId }, data: { receiptCounter: { increment: 1 } } });
+        const customer = dto.customerId ? await tx.customer.findFirst({ where: { tenantId, id: dto.customerId } }) : null;
         const confirmed = dto.paymentMethod === 'CASH';
         const sale = await tx.sale.create({
           data: {
-            tenantId, branchId: dto.branchId, customerId: dto.customerId, cashShiftId,
+            id: saleId, tenantId, branchId: dto.branchId, customerId: dto.customerId, cashShiftId,
+            receiptSequence: sequence.receiptCounter, branchName: priced.branch.name, branchAddress: priced.branch.address, customerName: customer ? [customer.firstName, customer.lastName].filter(Boolean).join(" ") : null,
             createdByUserId: userId, requestHash: fingerprint, idempotencyKey: key,
-            receiptNumber: 'SAL-' + randomUUID().replace(/-/g, '').toUpperCase(),
-            subtotalLkr: priced.subtotal, discountLkr: priced.discount, taxLkr: zero(), totalLkr: priced.total,
+            receiptNumber: priced.branch.code + '-' + String(sequence.receiptCounter).padStart(6, '0'),
+            subtotalLkr: priced.subtotal, discountLkr: priced.discount, taxLkr: priced.tax, totalLkr: priced.total,
             cashReceivedLkr: cash, changeLkr: cash?.sub(priced.total), status: confirmed ? 'COMPLETED' : 'OPEN',
             lines: { create: priced.lines },
-            payments: { create: { amountLkr: priced.total, method: dto.paymentMethod, status: confirmed ? 'VERIFIED' : 'PENDING', verifiedAt: confirmed ? new Date() : null, reference: dto.bankReference?.trim(), idempotencyKey: key } },
+            payments: { create: { amountLkr: priced.total, method: dto.paymentMethod, status: confirmed ? 'VERIFIED' : 'PENDING', verifiedAt: confirmed ? new Date() : null, resolvedAt: confirmed ? new Date() : null, reference: dto.bankReference?.trim(), idempotencyKey: key } },
           }, include: includeSale,
         });
         await this.audit(tx, tenantId, userId, 'SALE_CREATED', 'Sale', sale.id, { receiptNumber: sale.receiptNumber, totalLkr: priced.total.toFixed(2), discountLkr: priced.discount.toFixed(2), paymentStatus: confirmed ? 'VERIFIED' : 'PENDING', items: priced.lines.map(line => ({ itemId: line.catalogItemId, quantity: String(line.quantity), unitPriceLkr: String(line.unitPriceLkr) })) });
@@ -146,8 +167,10 @@ export class CheckoutService {
     }
   }
 
-  async sales(tenantId: string, query: SalesQueryDto) {
-    const where: Prisma.SaleWhereInput = { tenantId, ...(query.branchId ? { branchId: query.branchId } : {}), ...(query.from || query.to ? { createdAt: this.range(query) } : {}) };
+  async sales(tenantId: string, query: SalesQueryDto, userId?: string) {
+    const branches = userId ? await permittedBranches(this.db, tenantId, userId) : undefined;
+    if (userId && query.branchId) await requireBranch(this.db, tenantId, userId, query.branchId);
+    const where: Prisma.SaleWhereInput = { tenantId, ...(branches ? { branchId: { in: branches } } : {}), ...(query.branchId ? { branchId: query.branchId } : {}), ...(query.from || query.to ? { createdAt: this.range(query) } : {}) };
     const limit = query.limit ?? 30, offset = query.offset ?? 0;
     const [items, total] = await this.db.$transaction([
       this.db.sale.findMany({ where, include: includeSale, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], skip: offset, take: limit }),
@@ -155,9 +178,10 @@ export class CheckoutService {
     ], { isolationLevel: 'RepeatableRead' });
     return { items: items.map(sale => this.serializeSale(sale)), total, limit, offset };
   }
-  async receipt(tenantId: string, id: string) {
+  async receipt(tenantId: string, id: string, userId?: string) {
     const sale = await this.db.sale.findFirst({ where: { tenantId, id }, include: includeSale });
     if (!sale) throw new NotFoundException('Sale not found');
+    if (userId) await requireBranch(this.db, tenantId, userId, sale.branchId);
     return this.serializeSale(sale);
   }
 
@@ -191,26 +215,37 @@ export class CheckoutService {
     }, true);
   }
 
-  async verifyTransfer(tenantId: string, userId: string, paymentId: string, dto: VerifyTransferDto) {
+  async verifyTransfer(tenantId: string, userId: string, paymentId: string, dto: VerifyTransferDto, key = `resolve_${paymentId}_${dto.status ?? "VERIFIED"}`) {
     return this.transaction(async tx => {
-      await this.authorize(tx, tenantId, userId, Permission.REFUNDS);
+      await this.authorize(tx, tenantId, userId, Permission.PAYMENTS_VERIFY);
+      this.validateKey(key);
+      const fingerprint = hash({ paymentId, dto, userId });
+      const previous = await tx.financialCommand.findUnique({ where: { tenantId_key: { tenantId, key } } });
+      if (previous) { if (previous.requestHash !== fingerprint) throw new ConflictException('Payment key already used'); return previous.result as { id: string; status: string }; }
       const payment = await tx.payment.findFirst({ where: { tenantId, id: paymentId }, include: { sale: { include: { lines: true } } } });
-      if (!payment || payment.method !== 'BANK_TRANSFER') throw new NotFoundException('Bank transfer not found');
+      if (!payment || payment.method === 'CASH') throw new NotFoundException('External payment not found');
       const status = dto.status ?? 'VERIFIED';
-      if (payment.status === status) return { id: payment.id, status };
+      if (payment.status === status) {
+        const result = { id: payment.id, status };
+        await tx.financialCommand.create({ data: { tenantId, key, requestHash: fingerprint, result } });
+        return result;
+      }
       if (payment.status !== 'PENDING') throw new ConflictException('Transfer has already been resolved');
-      const changed = await tx.payment.updateMany({ where: { tenantId, id: paymentId, status: 'PENDING' }, data: { status, verifiedAt: status === 'VERIFIED' ? new Date() : null } });
+      const changed = await tx.payment.updateMany({ where: { tenantId, id: paymentId, status: 'PENDING' }, data: { status, verifiedAt: status === 'VERIFIED' ? new Date() : null, resolvedAt: new Date() } });
       if (changed.count !== 1) throw new ConflictException('Transfer was already resolved');
       if (status === 'FAILED') {
-        for (const line of payment.sale.lines) if (line.inventoryDeducted) await tx.catalogItem.updateMany({ where: { tenantId, id: line.catalogItemId }, data: { stockQuantity: { increment: line.quantity } } });
+        for (const line of payment.sale.lines) if (line.inventoryDeducted) await moveStock(tx, tenantId, payment.sale.branchId, line.catalogItemId, line.quantity, 'RELEASE', 'External payment rejected', userId, payment.saleId);
       }
       await tx.sale.update({ where: { id: payment.saleId }, data: { status: status === 'VERIFIED' ? 'COMPLETED' : 'VOIDED' } });
       await this.audit(tx, tenantId, userId, 'TRANSFER_' + status, 'Payment', paymentId, { saleId: payment.saleId, note: dto.note ?? null });
+      await tx.financialCommand.create({ data: { tenantId, key, requestHash: fingerprint, result: { id: paymentId, status } } });
       return { id: paymentId, status };
-    });
+    }, true);
   }
 
-  async report(tenantId: string, query: SalesQueryDto) {
+  async report(tenantId: string, query: SalesQueryDto, userId?: string) {
+    if (userId && query.branchId) await requireBranch(this.db, tenantId, userId, query.branchId);
+    if (userId && !query.branchId) { const member = await this.db.membership.findUnique({ where: { tenantId_userId: { tenantId, userId } } }); if (!member || !['OWNER', 'MANAGER'].includes(member.role)) throw new ForbiddenException('Manager access required for all-branch reports'); }
     const branch = query.branchId ? await this.db.branch.findFirst({ where: { tenantId, id: query.branchId } }) : null;
     if (query.branchId && !branch) throw new NotFoundException('Branch not found');
     const timezone = branch?.timezone ?? 'Asia/Colombo';
@@ -218,7 +253,7 @@ export class CheckoutService {
     const parsedDate = new Date(date + 'T00:00:00.000Z');
     if (!Number.isFinite(parsedDate.getTime()) || parsedDate.toISOString().slice(0, 10) !== date) throw new BadRequestException('Invalid report date');
     // PostgreSQL resolves the branch's calendar date, including daylight saving changes.
-    const [bounds] = await this.db.$queryRaw<Array<{ start: Date; end: Date }>>(Prisma.sql`SELECT (${date}::date::timestamp AT TIME ZONE ${timezone}) AS start, ((${date}::date + 1)::timestamp AT TIME ZONE ${timezone}) AS end`);
+    const [bounds] = await this.db.$queryRaw<{ start: Date; end: Date }[]>(Prisma.sql`SELECT (${date}::date::timestamp AT TIME ZONE ${timezone}) AS start, ((${date}::date + 1)::timestamp AT TIME ZONE ${timezone}) AS end`);
     return this.reportBounds(tenantId, query, date, timezone, bounds);
   }
 
@@ -226,17 +261,21 @@ export class CheckoutService {
     const range = query.from || query.to ? this.range(query) : { gte: bounds.start, lt: bounds.end };
     const branchFilter = query.branchId ? { branchId: query.branchId } : {};
     return this.transaction(async tx => {
-      const sales = await tx.sale.findMany({ where: { tenantId, createdAt: range, ...branchFilter }, select: { status: true, subtotalLkr: true, discountLkr: true, totalLkr: true } });
-      const payments = await tx.payment.findMany({ where: { tenantId, status: 'VERIFIED', verifiedAt: range, sale: branchFilter } });
-      const refunds = await tx.refund.findMany({ where: { tenantId, status: 'COMPLETED', createdAt: range, sale: branchFilter } });
+      const asOf = query.asOf ? new Date(query.asOf) : new Date();
+      if (!Number.isFinite(asOf.getTime()) || asOf > new Date()) throw new BadRequestException('Invalid report cutoff');
+      const effectiveRange = { ...range, lte: asOf };
+      const payments = await tx.payment.findMany({ where: { tenantId, status: 'VERIFIED', verifiedAt: effectiveRange, sale: branchFilter }, include: { sale: true } });
+      const refunds = await tx.refund.findMany({ where: { tenantId, status: 'COMPLETED', createdAt: effectiveRange, sale: branchFilter } });
+      const pending = await tx.payment.count({ where: { tenantId, method: { not: 'CASH' }, createdAt: effectiveRange, sale: branchFilter, OR: [{ resolvedAt: null }, { resolvedAt: { gt: asOf } }] } });
+      const settled = [...new Map(payments.map(p => [p.saleId, p.sale])).values()];
       const refundTotal = refunds.reduce((sum, refund) => sum.add(refund.amountLkr), zero());
       const received = payments.reduce((sum, payment) => sum.add(payment.amountLkr), zero());
-      const settled = sales.filter(sale => sale.status === 'COMPLETED' || sale.status === 'REFUNDED');
       return {
-        date, timezone, from: bounds.start.toISOString(), to: bounds.end.toISOString(),
-        salesCount: settled.length, pendingCount: sales.filter(sale => sale.status === 'OPEN').length,
+        date, timezone, asOf: asOf.toISOString(), from: (range.gte ?? bounds.start).toISOString(), to: (range.lt ?? bounds.end).toISOString(),
+        salesCount: settled.length, pendingCount: pending,
         grossLkr: settled.reduce((sum, sale) => sum.add(sale.subtotalLkr), zero()).toFixed(2),
         discountsLkr: settled.reduce((sum, sale) => sum.add(sale.discountLkr), zero()).toFixed(2),
+        taxLkr: settled.reduce((sum, sale) => sum.add(sale.taxLkr), zero()).toFixed(2),
         collectedLkr: received.toFixed(2), refundsLkr: refundTotal.toFixed(2), netLkr: received.sub(refundTotal).toFixed(2),
         payments: payments.reduce<Record<string, string>>((result, payment) => { result[payment.method] = new Prisma.Decimal(result[payment.method] ?? '0').add(payment.amountLkr).toFixed(2); return result; }, {}),
       };
@@ -248,7 +287,7 @@ export class CheckoutService {
     try {
       return await this.transaction(async tx => {
         await this.authorize(tx, tenantId, userId, Permission.CHECKOUT);
-        if (!await tx.branch.findFirst({ where: { tenantId, id: dto.branchId } })) throw new NotFoundException('Branch not found');
+        await requireBranch(tx, tenantId, userId, dto.branchId);
         const current = await tx.cashShift.findFirst({ where: { tenantId, branchId: dto.branchId, status: 'OPEN' } });
         if (current) {
           if (current.openedByUserId === userId && current.openingAmountLkr.eq(amount)) return this.shiftSummary(tx, current);
@@ -270,6 +309,7 @@ export class CheckoutService {
       const member = await this.authorize(tx, tenantId, userId, Permission.CHECKOUT);
       const shift = await tx.cashShift.findFirst({ where: { tenantId, id } });
       if (!shift) throw new NotFoundException('Cash shift not found');
+      await requireBranch(tx, tenantId, userId, shift.branchId);
       if (shift.openedByUserId !== userId && !['OWNER', 'MANAGER'].includes(member.role)) throw new ForbiddenException('Only the shift opener or a manager can close this shift');
       if (shift.status === 'CLOSED') {
         if (shift.closingAmountLkr?.eq(amount)) return shift;
@@ -282,7 +322,8 @@ export class CheckoutService {
       return closed;
     });
   }
-  async currentShift(tenantId: string, branchId: string) {
+  async currentShift(tenantId: string, branchId: string, userId?: string) {
+    if (userId) await requireBranch(this.db, tenantId, userId, branchId);
     return this.transaction(async tx => {
       const shift = await tx.cashShift.findFirst({ where: { tenantId, branchId, status: 'OPEN' } });
       return shift ? this.shiftSummary(tx, shift) : null;
@@ -301,11 +342,11 @@ export class CheckoutService {
     const refunded = sale.refunds.filter(refund => refund.status === 'COMPLETED').reduce((sum, refund) => sum.add(refund.amountLkr), zero());
     const paid = sale.payments.filter(payment => payment.status === 'VERIFIED').reduce((sum, payment) => sum.add(payment.amountLkr), zero());
     const receiptText = [
-      'SALONOS', sale.receiptNumber, sale.branch.name, new Date(sale.createdAt).toISOString(),
+      'SALONOS', sale.receiptNumber, sale.branchName ?? sale.branch.name, new Date(sale.createdAt).toISOString(),
       sale.status === 'OPEN' ? 'PENDING TRANSFER - NOT A CONFIRMED PAYMENT' : sale.status,
       ...sale.lines.map(line => line.itemName + ' x ' + line.quantity.toString() + ' @ LKR ' + line.unitPriceLkr.toFixed(2) + ' = ' + line.lineTotalLkr.toFixed(2)),
       'Subtotal LKR ' + sale.subtotalLkr.toFixed(2), 'Discount LKR ' + sale.discountLkr.toFixed(2),
-      'Total LKR ' + sale.totalLkr.toFixed(2), 'Confirmed payment LKR ' + paid.toFixed(2),
+      'Tax LKR ' + sale.taxLkr.toFixed(2), 'Total LKR ' + sale.totalLkr.toFixed(2), 'Confirmed payment LKR ' + paid.toFixed(2),
       ...(sale.cashReceivedLkr ? ['Cash received LKR ' + sale.cashReceivedLkr.toFixed(2), 'Change LKR ' + sale.changeLkr!.toFixed(2)] : []),
       'Refunded LKR ' + refunded.toFixed(2), ...sale.payments.map(payment => payment.method + ': ' + payment.status + (payment.reference ? ' / ' + payment.reference : '')),
     ].join('\n');

@@ -21,7 +21,7 @@ export class CheckoutController {
   quote(@Req() req: AuthenticatedRequest, @Body() dto: CheckoutDto) { return this.checkout.quote(req.user.tenantId, req.user.sub, dto); }
 
   @Get('sales/:id/receipt') @RequirePermissions(Permission.CHECKOUT)
-  receipt(@Req() req: AuthenticatedRequest, @Param('id') id: string) { return this.checkout.receipt(req.user.tenantId, id); }
+  receipt(@Req() req: AuthenticatedRequest, @Param('id') id: string) { return this.checkout.receipt(req.user.tenantId, id, req.user.sub); }
 
   @Get('catalog')
   @RequirePermissions(Permission.SERVICES_READ)
@@ -33,7 +33,7 @@ export class CheckoutController {
 
   @Get('staff')
   @RequirePermissions(Permission.CHECKOUT)
-  staff(@Req() req: AuthenticatedRequest, @Query('branchId') branchId: string) { return this.checkout.staff(req.user.tenantId, branchId); }
+  staff(@Req() req: AuthenticatedRequest, @Query('branchId') branchId: string) { return this.checkout.staff(req.user.tenantId, branchId, req.user.sub); }
 
   @Post('sales')
   @RequirePermissions(Permission.CHECKOUT)
@@ -41,7 +41,7 @@ export class CheckoutController {
 
   @Get('sales')
   @RequirePermissions(Permission.CHECKOUT)
-  sales(@Req() req: AuthenticatedRequest, @Query() query: SalesQueryDto) { return this.checkout.sales(req.user.tenantId, query); }
+  sales(@Req() req: AuthenticatedRequest, @Query() query: SalesQueryDto) { return this.checkout.sales(req.user.tenantId, query, req.user.sub); }
 
   @Post('sales/:id/refunds')
   @RequirePermissions(Permission.REFUNDS)
@@ -53,11 +53,11 @@ export class CheckoutController {
 
   @Get('report/daily')
   @RequirePermissions(Permission.REPORTS_READ)
-  report(@Req() req: AuthenticatedRequest, @Query() query: SalesQueryDto) { return this.checkout.report(req.user.tenantId, query); }
+  report(@Req() req: AuthenticatedRequest, @Query() query: SalesQueryDto) { return this.checkout.report(req.user.tenantId, query, req.user.sub); }
 
   @Get('shifts/current')
   @RequirePermissions(Permission.CHECKOUT)
-  currentShift(@Req() req: AuthenticatedRequest, @Query('branchId') branchId: string) { return this.checkout.currentShift(req.user.tenantId, branchId); }
+  currentShift(@Req() req: AuthenticatedRequest, @Query('branchId') branchId: string) { return this.checkout.currentShift(req.user.tenantId, branchId, req.user.sub); }
 
   @Post('shifts')
   @RequirePermissions(Permission.CHECKOUT)

@@ -1,0 +1,1 @@
+This is the explicitly requested Next.js web workspace. Use Next App Router here; Expo Router and React Native remain in the mobile workspace. All financial calculations and authorization belong in the NestJS API. Do not store access or refresh tokens in browser localStorage. Validate with typecheck, lint, and production build. Do not deploy unless explicitly requested.

@@ -14,18 +14,22 @@ describe('Checkout financial rules', () => {
   beforeEach(() => {
     db = {
       membership: { findUnique: jest.fn().mockResolvedValue({ role: 'OWNER' }) },
-      branch: { findFirst: jest.fn().mockResolvedValue({ id: 'branch-1', name: 'Main', timezone: 'Asia/Colombo' }) },
+      branch: { findFirstOrThrow: jest.fn().mockResolvedValue({ stockPolicy: 'REJECT' }), findFirst: jest.fn().mockResolvedValue({ id: 'branch-1', code: 'MAIN', name: 'Main', timezone: 'Asia/Colombo', stockPolicy: 'REJECT' }), update: jest.fn().mockResolvedValue({ receiptCounter: 1 }), count: jest.fn().mockResolvedValue(1) },
+      branchPrice: { findMany: jest.fn().mockResolvedValue([]) },
+      stockBalance: { findUnique: jest.fn().mockResolvedValue({ quantity: D('10') }), findUniqueOrThrow: jest.fn().mockResolvedValue({ quantity: D('8') }), updateMany: jest.fn().mockResolvedValue({count: 1}), aggregate: jest.fn().mockResolvedValue({ _sum: {quantity: D('8')} }) },
+      inventoryMovement: { create: jest.fn() },
+      financialCommand: { findUnique: jest.fn().mockResolvedValue(null), create: jest.fn() },
       customer: { findFirst: jest.fn().mockResolvedValue({ id: 'customer-1' }) },
-      staffProfile: { findFirst: jest.fn().mockResolvedValue({ id: 'staff-1' }) },
+      staffProfile: { findMany: jest.fn().mockResolvedValue([{branchId:"branch-1"}]), findFirst: jest.fn().mockResolvedValue({ id: 'staff-1' }) },
       catalogItem: {
-        findMany: jest.fn().mockResolvedValue([{ id: 'item-1', name: 'Haircut', type: 'SERVICE', priceLkr: D('100.25'), trackInventory: false }]),
+        findMany: jest.fn().mockResolvedValue([{ id: 'item-1', name: 'Haircut', type: 'SERVICE', priceLkr: D('100.25'), trackInventory: false, active: true, taxRateBps: 0, taxLabel: 'No tax' }]),
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
       sale: { findUnique: jest.fn().mockResolvedValue(null), findFirst: jest.fn(), findMany: jest.fn().mockResolvedValue([]), count: jest.fn().mockResolvedValue(0), update: jest.fn(), create: jest.fn(async ({ data }: any) => ({
         ...data, id: 'sale-1', createdAt: new Date(), branch: { name: 'Main' }, customer: null,
         lines: data.lines.create, payments: [{ id: 'payment-1', ...data.payments.create }], refunds: [],
       })) },
-      payment: { findFirst: jest.fn(), updateMany: jest.fn().mockResolvedValue({ count: 1 }), findMany: jest.fn().mockResolvedValue([]) },
+      payment: { count: jest.fn().mockResolvedValue(1), findFirst: jest.fn(), updateMany: jest.fn().mockResolvedValue({ count: 1 }), findMany: jest.fn().mockResolvedValue([]) },
       refund: { findUnique: jest.fn().mockResolvedValue(null), findMany: jest.fn().mockResolvedValue([]), create: jest.fn(async ({ data }: any) => ({ id: 'refund-1', status: 'COMPLETED', ...data })) },
       cashShift: { findFirst: jest.fn().mockResolvedValue({ id: 'shift-1', tenantId: 'tenant-1', branchId: 'branch-1', status: 'OPEN', openedByUserId: 'user-1', openingAmountLkr: D('1000.00') }), create: jest.fn(), update: jest.fn(async ({ data }: any) => ({ id: 'shift-1', ...data })) },
       auditLog: { create: jest.fn() },
@@ -47,7 +51,7 @@ describe('Checkout financial rules', () => {
     expect(db.auditLog.create).toHaveBeenCalled();
   });
   it('quotes without creating sales, payments or stock changes', async () => {
-    expect(await service.quote('tenant-1', 'user-1', dto())).toEqual({ subtotalLkr: '200.50', discountLkr: '0.50', totalLkr: '200.00' });
+    expect(await service.quote('tenant-1', 'user-1', dto())).toEqual({ subtotalLkr: '200.50', discountLkr: '0.50', taxLkr: '0.00', totalLkr: '200.00' });
     expect(db.sale.create).not.toHaveBeenCalled();
     expect(db.catalogItem.updateMany).not.toHaveBeenCalled();
   });
@@ -107,11 +111,11 @@ describe('Checkout financial rules', () => {
     await expect(checkout()).rejects.toThrow('Catalog item not found');
   });
   it('deducts product inventory conditionally and rejects insufficient stock', async () => {
-    db.catalogItem.findMany.mockResolvedValue([{ id: 'item-1', name: 'Shampoo', type: 'PRODUCT', priceLkr: D('100.25'), trackInventory: true }]);
+    db.catalogItem.findMany.mockResolvedValue([{ id: 'item-1', name: 'Shampoo', type: 'PRODUCT', priceLkr: D('100.25'), trackInventory: true, active: true, taxRateBps: 0, taxLabel: 'No tax' }]);
     const input = dto(); delete input.items[0].assignedStaffProfileId;
     await checkout(input);
-    expect(db.catalogItem.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ stockQuantity: { gte: expect.any(Prisma.Decimal) } }) }));
-    db.catalogItem.updateMany.mockResolvedValue({ count: 0 });
+    expect(db.stockBalance.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ quantity: { gte: expect.any(Prisma.Decimal) } }) }));
+    db.stockBalance.updateMany.mockResolvedValue({ count: 0 });
     await expect(checkout(input, 'another-key-001')).rejects.toThrow('Insufficient stock');
   });
   it('records transfers as pending and never calls them confirmed', async () => {
@@ -166,7 +170,7 @@ describe('Checkout financial rules', () => {
   });
   it('builds reports from confirmed collection time and refund time, excluding pending transfers', async () => {
     db.sale.findMany.mockResolvedValue([{ status: 'OPEN', subtotalLkr: D('100'), discountLkr: D('0'), totalLkr: D('100') }]);
-    db.payment.findMany.mockResolvedValue([{ method: 'CASH', amountLkr: D('50.50') }]);
+    db.payment.findMany.mockResolvedValue([{ method: 'CASH', amountLkr: D('50.50'), saleId: 'sale-1', sale: { subtotalLkr: D('50.50'), discountLkr: D('0'), taxLkr: D('0') } }]);
     db.refund.findMany.mockResolvedValue([{ amountLkr: D('10.25') }]);
     const result = await service.report('tenant-1', { branchId: 'branch-1', date: '2026-10-25', limit: 30, offset: 0 });
     expect(result.netLkr).toBe('40.25');
@@ -182,4 +186,10 @@ describe('Checkout financial rules', () => {
     expect(await validate(query)).toHaveLength(0);
     expect(query.offset).toBe(20);
   });
+  it('merges duplicate item/staff lines before rounding line tax', async () => {
+    db.catalogItem.findMany.mockResolvedValue([{ id:'item-1',name:'Tax rounding sample',type:'SERVICE',active:true,priceLkr:D('0.03'),taxRateBps:1800,taxLabel:'Demo tax',trackInventory:false }]);
+    const input={...dto(),discountLkr:'0',expectedTotalLkr:'0.07',items:[{itemId:'item-1',quantity:'1',assignedStaffProfileId:'staff-1'},{itemId:'item-1',quantity:'1',assignedStaffProfileId:'staff-1'}]};
+    const result=await checkout(input);expect(result.lines).toHaveLength(1);expect(result.taxLkr).toBe('0.01');expect(result.totalLkr).toBe('0.07');
+  });
+
 });

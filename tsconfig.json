@@ -4,7 +4,8 @@
     "strict": true
   },
   "exclude": [
-    "apps/api"
+    "apps/api",
+    "apps/web"
   ],
   "include": [
     "**/*.ts",

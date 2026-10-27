@@ -29,6 +29,7 @@
     "zustand": "^5.0.16"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.1",
     "@types/react": "~19.3.0",
     "babel-preset-expo": "^58.0.20",
     "eslint": "^9.0.0",
@@ -38,7 +39,8 @@
   },
   "private": true,
   "workspaces": [
-    "apps/api"
+    "apps/api",
+    "apps/web"
   ],
   "scripts": {
     "start": "expo start",
@@ -53,6 +55,10 @@
     "api:prisma:generate": "npm run prisma:generate --workspace @salonos/api",
     "api:prisma:migrate": "npm run prisma:migrate --workspace @salonos/api",
     "api:pos:demo": "node apps/api/scripts/seed-pos-demo.cjs",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "pos:web": "npm run dev --workspace @salonos/web",
+    "pos:web:build": "npm run build --workspace @salonos/web",
+    "pos:web:typecheck": "npm run typecheck --workspace @salonos/web",
+    "pos:web:lint": "npm run lint --workspace @salonos/web"
   }
 }
