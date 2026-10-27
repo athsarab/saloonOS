@@ -1,0 +1,7 @@
+'use client';
+import { useState } from 'react';
+import { api } from '../../src/api';
+export default function Login() {
+  const [error, setError] = useState(''), [busy, setBusy] = useState(false);
+  return <main className="login"><div className="login-story"><span className="brand">SalonOS<span> / POINT OF SALE</span></span><div><p className="eyebrow">A LITTLE MORE FLOW</p><h1>Great service.<br />A seamless finish.</h1><p>Your salon, from the first hello to the final receipt.</p></div><small>Designed for the everyday rhythm of your salon.</small></div><section className="login-card"><p className="eyebrow">WELCOME BACK</p><h2>Open your workspace</h2><p className="muted">Sign in with your verified SalonOS account.</p><form onSubmit={async e => { e.preventDefault(); setBusy(true); setError(''); const f = new FormData(e.currentTarget); try { await api('auth/login', { email: f.get('email'), password: f.get('password') }); window.location.assign('/'); } catch (err) { setError((err as Error).message); setBusy(false); } }}><label>Email address<input name="email" type="email" autoComplete="username" required placeholder="you@your-salon.lk" /></label><label>Password<input name="password" type="password" autoComplete="current-password" required /></label>{error && <p role="alert" className="error">{error}</p>}<button className="primary" disabled={busy}>{busy ? 'Signing in...' : 'Sign in to SalonOS'}</button></form><p className="muted small">Use the same credentials as your mobile app.</p></section></main>;
+}
