@@ -58,13 +58,22 @@ export default function CheckoutScreen() {
     ...(method === 'CASH' ? { cashReceivedLkr: cash ? decimal(cents(cash)) : undefined } : { bankReference: reference.trim() }),
     items: cart.map(line => ({ itemId: line.item.id, quantity: String(line.quantity), assignedStaffProfileId: line.staffId, expectedUnitPriceLkr: line.item.priceLkr })),
   });
+  const billText = () => [
+    'SALONOS - BILL',
+    '',
+    ...cart.map(line => `${line.item.name} x ${line.quantity}  ${lkr(decimal(cents(line.item.priceLkr) * BigInt(line.quantity)))}`),
+    '',
+    `Total: ${quote ? lkr(quote.totalLkr) : estimated ? lkr(estimated) : '—'}`,
+    customerId ? 'Customer: Selected customer' : 'Customer: Walk-in customer',
+    '',
+    'Payment not recorded.',
+  ].join('\n');
   const review = async () => {
     setMessage('');
     if (!offline.apiOnline) { setMessage('The API is unreachable. Use Offline cash checkout only after preparing an authorized session in Sync Status.'); return; }
     try {
       if (!cart.length || !branchId) throw new Error('Choose a branch and at least one item.');
       if (cart.some(line => line.item.type === 'SERVICE' && !line.staffId)) throw new Error('Assign a staff member to every service.');
-      if (method === 'CASH' && !shift.data) throw new Error('Open a cash shift before taking cash.');
       if (method === 'BANK_TRANSFER' && !reference.trim()) throw new Error('Enter the bank transfer reference.');
       const next = await price.mutateAsync(payload());
       if (method === 'CASH' && (!cash || cents(cash) < cents(next.totalLkr))) throw new Error('Enter enough cash received to cover ' + lkr(next.totalLkr) + '.');
@@ -201,8 +210,10 @@ export default function CheckoutScreen() {
               <Text style={[styles.title, { color: colors.text }]}>{lkr(quote?.totalLkr ?? attempt!.payload.expectedTotalLkr!)}</Text>
               <Text style={{ color: colors.text }}>{method === 'CASH' ? 'Cash / received ' + lkr(cash) : 'Bank transfer / ' + reference}</Text>
               {method === 'CASH' && quote ? <Text style={{ color: colors.primary }}>Change {lkr(decimal(cents(cash) - cents(quote.totalLkr)))}</Text> : <Text style={{ color: colors.accent }}>Unverified transfer. No confirmed payment yet.</Text>}
+              {method === 'CASH' && !shift.data ? <Text style={{ color: colors.danger }}>Open a cash shift before confirming payment. You can print this bill now.</Text> : null}
             </Card>
-            <Button label={attempt ? 'Retry safely' : method === 'CASH' ? 'Confirm cash received' : 'Record pending transfer'} onPress={() => void confirm()} loading={pay.isPending} />
+            {!attempt ? <Button label="Print / share bill" variant="secondary" onPress={() => void shareReceipt(billText()).then(setMessage).catch(() => setMessage('Could not open the bill for printing.'))} /> : null}
+            {method === 'CASH' && !shift.data && !attempt ? <Button label="Open cash shift to take payment" onPress={() => { setCount(''); setShiftError(''); setShiftMode('open'); }} /> : <Button label={attempt ? 'Retry safely' : method === 'CASH' ? 'Confirm cash received' : 'Record pending transfer'} onPress={() => void confirm()} loading={pay.isPending} />}
             {!attempt ? <Button label="Edit cart" variant="secondary" onPress={() => setQuote(null)} /> : null}
           </>}
         </>}
