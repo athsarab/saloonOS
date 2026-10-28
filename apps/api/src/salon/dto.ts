@@ -1,5 +1,6 @@
 import { AppointmentStatus, CatalogItemType } from '@prisma/client';
 import { IsDateString, IsEnum, IsInt, IsOptional, IsPositive, IsString, IsUUID, Matches, Max, Min, MinLength } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class UpdateBusinessDto {
   @IsOptional() @IsString() @MinLength(2) name?: string;
@@ -74,14 +75,14 @@ export class AppointmentQueryDto {
   @IsDateString() to!: string;
   @IsOptional() @IsUUID() staffProfileId?: string;
   @IsOptional() @IsEnum(AppointmentStatus) status?: AppointmentStatus;
-  @IsOptional() @IsInt() @Min(1) @Max(100) limit = 50;
-  @IsOptional() @IsInt() @Min(0) offset = 0;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(100) limit = 50;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(0) offset = 0;
 }
 
 export class CustomerQueryDto {
   @IsOptional() @IsString() search?: string;
-  @IsOptional() @IsInt() @Min(1) @Max(100) limit = 50;
-  @IsOptional() @IsInt() @Min(0) offset = 0;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(100) limit = 50;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(0) offset = 0;
 }
 
 export class DashboardQueryDto {
