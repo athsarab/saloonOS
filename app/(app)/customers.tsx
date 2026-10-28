@@ -8,15 +8,16 @@ import { AppBottomSheet } from '../../src/components/AppBottomSheet';
 import { AppButton } from '../../src/components/AppButton';
 import { AppHeader } from '../../src/components/AppHeader';
 import { AppAvatar, AppListItem } from '../../src/components/AppListItem';
+import { AppStatusBadge } from '../../src/components/AppStatusBadge';
 import { AppSearchBar } from '../../src/components/AppSearchBar';
 import { AppEmptyState, AppErrorState, AppInlineError, AppLoadingState } from '../../src/components/AppStates';
 import { AppTextField } from '../../src/components/AppTextField';
 import { useToast } from '../../src/components/AppToast';
 import { Screen } from '../../src/components/ui';
 import { emailPattern, friendlyError } from '../../src/lib/errors';
-import { fullName } from '../../src/lib/format';
+import { appointmentStatus, formatDateTime, fullName } from '../../src/lib/format';
 import { usePermissions } from '../../src/lib/permissions';
-import { NewCustomer, useCreateCustomer, useCustomerList } from '../../src/lib/salon-api';
+import { Appointment, NewCustomer, useCreateCustomer, useCustomer, useCustomerList } from '../../src/lib/salon-api';
 import { useTheme } from '../../src/theme/ThemeProvider';
 import { iconSize, radius, spacing, type } from '../../src/theme/tokens';
 
@@ -37,6 +38,7 @@ export default function CustomersScreen() {
   const { can } = usePermissions();
   const params = useLocalSearchParams<{ new?: string }>();
   const [search, setSearch] = useState('');
+  const [selectedId, setSelectedId] = useState<string>();
   const query = useDebounced(search.trim());
   const customers = useCustomerList(query);
   const canAdd = can('customer.write');
@@ -47,6 +49,7 @@ export default function CustomersScreen() {
 
   const items = customers.data?.items ?? [];
   const total = customers.data?.total ?? 0;
+  const detail = useCustomer(selectedId);
 
   return (
     <Screen>
@@ -93,14 +96,29 @@ export default function CustomersScreen() {
                 title={fullName(item)}
                 subtitle={[item.phone, item.email].filter(Boolean).join(' · ') || 'No contact details'}
                 leading={<AppAvatar name={fullName(item)} />}
+                onPress={() => setSelectedId(item.id)}
               />
             </View>
           )}
         />
       </SafeAreaView>
       <AddCustomerSheet visible={adding} onClose={closeAdd} />
+      <CustomerDetailSheet customer={detail.data} visible={!!selectedId} loading={detail.isPending} onClose={() => setSelectedId(undefined)} />
     </Screen>
   );
+}
+
+function CustomerDetailSheet({ customer, visible, loading, onClose }: { customer?: { firstName: string; lastName: string | null; phone: string | null; email: string | null; notes: string | null; appointments: Appointment[] }; visible: boolean; loading: boolean; onClose: () => void }) {
+  const { colors } = useTheme();
+  return <AppBottomSheet visible={visible} title="Customer profile" onClose={onClose}>
+    {loading ? <AppLoadingState label="Loading customer history…" /> : customer ? <>
+      <Text style={[type.heading, { color: colors.text }]}>{fullName(customer)}</Text>
+      <Text style={[type.body, { color: colors.textMuted }]}>{customer.phone || 'No phone number'}{customer.email ? ` · ${customer.email}` : ''}</Text>
+      {customer.notes ? <Text style={[type.body, { color: colors.text }]}>{customer.notes}</Text> : null}
+      <Text style={[type.heading, { color: colors.text }]}>Appointment history</Text>
+      {!customer.appointments.length ? <Text style={[type.body, { color: colors.textMuted }]}>No appointments recorded for this customer.</Text> : customer.appointments.map((item) => <View key={item.id} style={styles.historyRow}><View style={styles.flex}><Text style={[type.bodyStrong, { color: colors.text }]}>{item.service?.name ?? 'Service'}</Text><Text style={[type.caption, { color: colors.textMuted }]}>{formatDateTime(item.startsAt)}</Text></View><AppStatusBadge label={appointmentStatus[item.status]?.label ?? item.status} tone={appointmentStatus[item.status]?.tone ?? 'neutral'} /></View>)}
+    </> : null}
+  </AppBottomSheet>;
 }
 
 function AddCustomerSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
@@ -157,4 +175,5 @@ const styles = StyleSheet.create({
   rowWrap: { borderLeftWidth: 1, borderRightWidth: 1, overflow: 'hidden' },
   first: { borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, borderTopWidth: 1 },
   last: { borderBottomLeftRadius: radius.lg, borderBottomRightRadius: radius.lg, borderBottomWidth: 1 },
+  historyRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.md, paddingVertical: spacing.md },
 });
