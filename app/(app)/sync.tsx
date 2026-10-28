@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text as NativeText, type TextProps, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, Card, Field, Screen } from '../../src/components/ui';
+import { AppHeader } from '../../src/components/AppHeader';
 import { useTheme } from '../../src/theme/ThemeProvider';
 import { useBranches, useCheckoutAccess } from '../../src/lib/checkout-api';
 import { apiRequest } from '../../src/lib/api';
@@ -26,7 +27,7 @@ export default function SyncScreen() {
     finally { setBusy(false); }
   };
   return <Screen><SafeAreaView edges={['top']}><ScrollView contentContainerStyle={styles.content}>
-    <Text style={styles.title}>Sync Status</Text>
+    <AppHeader back title="Offline & sync" />
     {!offlineSupported ? <Text>Offline cash checkout is available on Android only. Web and iOS use online checkout.</Text> : <>
       <Card>
         <Text style={styles.heading}>{checking ? 'Checking connectivity...' : apiOnline ? 'API reachable' : 'Offline / API unreachable'}</Text>

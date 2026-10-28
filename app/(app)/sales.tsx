@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowDownLeft, ChevronRight, ReceiptText } from 'lucide-react-native';
 import { Button, Card, EmptyState, Field, Screen } from '../../src/components/ui';
 import { PosSheet } from '../../src/components/PosSheet';
+import { AppHeader } from '../../src/components/AppHeader';
 import { ApiError } from '../../src/lib/api';
 import { requestKey, useBranches, useCheckoutAccess, useDailyReport, useRefund, useSaleReceipt, useSalesHistory, useVerifyTransfer } from '../../src/lib/checkout-api';
 import { cents, decimal, lkr } from '../../src/lib/money';
@@ -78,8 +79,7 @@ export default function SalesScreen() {
           data={sales.data?.items ?? []} keyExtractor={item => item.id} contentContainerStyle={styles.content}
           refreshing={sales.isFetching} onRefresh={() => { void sales.refetch(); if (canReport) void report.refetch(); }}
           ListHeaderComponent={<View style={styles.header}>
-            <Text style={[styles.eyebrow, { color: colors.primary }]}>THE DAY, AT A GLANCE</Text>
-            <Text style={[styles.title, { color: colors.text }]}>Sales & receipts</Text>
+            <AppHeader back title={canReport ? 'Sales & reports' : 'Sales history'} />
             <View style={styles.wrap}>{(branches.data ?? []).map(item => <Pressable key={item.id} accessibilityRole="button" accessibilityState={{ selected: branchId === item.id }} style={[styles.chip, { backgroundColor: branchId === item.id ? colors.primarySoft : colors.surfaceMuted }]} onPress={() => { setBranch(item.id); setOffset(0); }}><Text style={{ color: colors.text }}>{item.name}</Text></Pressable>)}</View>
             {access.isError || branches.isError ? <Button label="Retry access and branches" onPress={() => { void access.refetch(); void branches.refetch(); }} /> : null}
             {canReport ? <Card>

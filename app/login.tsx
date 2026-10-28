@@ -1,13 +1,17 @@
-import { Link, router } from 'expo-router';
+import { useRef } from 'react';
+import { router } from 'expo-router';
 import { Controller, useForm } from 'react-hook-form';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { AppHeader } from '../src/components/AppHeader';
-import { Button, Field, Screen } from '../src/components/ui';
-import { Logo } from '../src/components/Logo';
-import { ApiError, apiRequest } from '../src/lib/api';
-import { env } from '../src/config/env';
+import { Text, TextInputInstance } from 'react-native';
+import { AppButton } from '../src/components/AppButton';
+import { AppInlineError } from '../src/components/AppStates';
+import { AppTextField } from '../src/components/AppTextField';
+import { AuthLayout } from '../src/components/AuthLayout';
+import { TextLink } from '../src/components/TextLink';
+import { apiRequest } from '../src/lib/api';
 import { useAuthStore } from '../src/lib/auth';
+import { emailPattern, friendlyError } from '../src/lib/errors';
 import { useTheme } from '../src/theme/ThemeProvider';
+import { type } from '../src/theme/tokens';
 
 type FormValues = { email: string; password: string };
 type LoginResponse = { accessToken: string; refreshToken: string; tenants: { id: string; name: string; role: string }[] };
@@ -15,7 +19,9 @@ type LoginResponse = { accessToken: string; refreshToken: string; tenants: { id:
 export default function LoginScreen() {
   const { colors } = useTheme();
   const setSession = useAuthStore((state) => state.setSession);
-  const { control, handleSubmit, setError, formState: { isSubmitting, errors } } = useForm<FormValues>({ defaultValues: { email: '', password: '' } });
+  const passwordRef = useRef<TextInputInstance>(null);
+  const { control, handleSubmit, setError, getValues, formState: { isSubmitting, errors } } = useForm<FormValues>({ defaultValues: { email: '', password: '' }, mode: 'onTouched' });
+
   const submit = async (values: FormValues) => {
     let credentialsAccepted = false;
     try {
@@ -24,15 +30,64 @@ export default function LoginScreen() {
       await setSession(session);
       router.replace(session.tenants.length > 1 ? '/business-selection' : '/(app)');
     } catch (error) {
-      const message = credentialsAccepted
-        ? 'Your credentials were accepted, but this device could not save the session. Reload the app and try again.'
-        : error instanceof ApiError
-          ? error.status === 401 ? 'Invalid email or password' : error.status === 429 ? 'Too many sign-in attempts. Please wait a minute and try again.' : error.message
-          : `Could not connect to ${env.apiUrl}. Check that your phone and computer are on the same Wi-Fi and the API is running.`;
-      setError('root', { message });
+      setError('root', {
+        message: credentialsAccepted
+          ? 'You were signed in, but this device couldn’t save the session securely. Close and reopen the app, then try again.'
+          // The API returns the same 401 for a wrong password and an unverified email, by design.
+          : friendlyError(error, { fallback: 'Sign-in failed. Please try again.', byStatus: { 401: 'Email or password is incorrect. If you registered recently, verify your email first.' } }),
+      });
     }
   };
-  return <Screen><KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}><ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled"><Logo /><AppHeader title="Welcome back" description="Sign in to continue to your workspace." /><View style={styles.form}><Controller control={control} name="email" rules={{ required: 'Email is required' }} render={({ field, fieldState }) => <Field label="Work email" autoCapitalize="none" autoCorrect={false} keyboardType="email-address" placeholder="you@salon.com" value={field.value} onChangeText={field.onChange} error={fieldState.error?.message} />} /><Controller control={control} name="password" rules={{ required: 'Password is required' }} render={({ field, fieldState }) => <Field label="Password" autoCapitalize="none" autoCorrect={false} secureTextEntry placeholder="Enter your password" value={field.value} onChangeText={field.onChange} error={fieldState.error?.message} />} /><Link href="/forgot-password" style={[styles.link, { color: colors.primary }]}>Forgot password?</Link>{errors.root ? <Text style={{ color: colors.danger }}>{errors.root.message}</Text> : null}<Button label="Sign in" loading={isSubmitting} onPress={() => void handleSubmit(submit)()} /><Text style={[styles.status, { color: colors.textMuted }]}>Your session is stored securely on this device.</Text></View><View style={styles.footer}><Text style={{ color: colors.textMuted }}>New to SalonOS?</Text><Link href="/register" style={[styles.link, { color: colors.primary }]}>Create an account</Link></View></ScrollView></KeyboardAvoidingView></Screen>;
-}
+  const onSubmit = () => { if (!isSubmitting) void handleSubmit(submit)(); };
 
-const styles = StyleSheet.create({ flex: { flex: 1 }, content: { gap: 28, padding: 24, paddingTop: 20 }, form: { gap: 18 }, link: { fontSize: 14, fontWeight: '700' }, status: { fontSize: 12, lineHeight: 18, textAlign: 'center' }, footer: { alignItems: 'center', flexDirection: 'row', gap: 5, justifyContent: 'center' } });
+  return (
+    <AuthLayout
+      title="Sign in"
+      description="Welcome back. Sign in to your SalonOS business."
+      footer={<><Text style={[type.label, { color: colors.textMuted }]}>New to SalonOS?</Text><TextLink label="Create an account" onPress={() => router.push('/register')} /></>}
+    >
+      <Controller control={control} name="email" rules={{ validate: (value) => !value.trim() ? 'Enter your email address' : emailPattern.test(value.trim()) || 'Enter a valid email address' }} render={({ field }) => (
+        <AppTextField
+          label="Email"
+          placeholder="you@yoursalon.lk"
+          autoCapitalize="none"
+          autoCorrect={false}
+          autoComplete="email"
+          textContentType="username"
+          keyboardType="email-address"
+          returnKeyType="next"
+          submitBehavior="submit"
+          onSubmitEditing={() => passwordRef.current?.focus()}
+          editable={!isSubmitting}
+          value={field.value}
+          onChangeText={field.onChange}
+          onBlur={field.onBlur}
+          error={errors.email?.message}
+        />
+      )} />
+      <Controller control={control} name="password" rules={{ required: 'Enter your password' }} render={({ field }) => (
+        <AppTextField
+          ref={passwordRef}
+          label="Password"
+          placeholder="Your password"
+          secureToggle
+          autoCapitalize="none"
+          autoCorrect={false}
+          autoComplete="current-password"
+          textContentType="password"
+          returnKeyType="go"
+          onSubmitEditing={onSubmit}
+          editable={!isSubmitting}
+          value={field.value}
+          onChangeText={field.onChange}
+          onBlur={field.onBlur}
+          error={errors.password?.message}
+        />
+      )} />
+      <TextLink label="Forgot password?" align="right" onPress={() => router.push('/forgot-password')} />
+      <AppInlineError message={errors.root?.message} />
+      <AppButton label="Sign in" loading={isSubmitting} onPress={onSubmit} />
+      <TextLink label="Verify your email" align="center" onPress={() => router.push({ pathname: '/verify-email', params: { email: getValues('email').trim() } })} />
+    </AuthLayout>
+  );
+}

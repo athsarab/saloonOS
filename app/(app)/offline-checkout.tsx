@@ -4,6 +4,7 @@ import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, Card, Field, Screen } from '../../src/components/ui';
 import { PosSheet } from '../../src/components/PosSheet';
+import { AppHeader } from '../../src/components/AppHeader';
 import { useTheme } from '../../src/theme/ThemeProvider';
 import { previewOfflineCash, recordOfflineCash, useOffline } from '../../src/offline/runtime';
 import type { OfflineOperation } from '../../src/offline/types';
@@ -34,7 +35,7 @@ export default function OfflineCashScreen() {
   return <Screen><SafeAreaView style={styles.flex} edges={['top']}>
     <FlatList data={snapshot.catalog.filter(item => (item.name + ' ' + (item.category ?? '')).toLowerCase().includes(search.toLowerCase()))} keyExtractor={item => item.id} contentContainerStyle={styles.content}
       ListHeaderComponent={<View style={styles.gap}>
-        <Text style={[styles.title, { color: colors.text }]}>Offline cash till</Text>
+        <AppHeader back fallbackHref="/(app)/sync" title="Offline cash till" />
         <Text style={{ color: colors.accent }}>LOCAL RECORDING / receipts are provisional until synchronized.</Text>
         <Text style={{ color: colors.text }}>{snapshot.branch.name} / walk-in / cash only</Text>
         <Text style={{ color: colors.textMuted }}>Catalog valid until {new Date(snapshot.catalogExpiresAt).toLocaleTimeString()}. No refunds, transfers or discounts offline.</Text>
