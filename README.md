@@ -1,10 +1,17 @@
 # SalonOS
 
+## Phase 4 transactional POS
+
+The responsive Next.js POS is in `apps/web`. Run `npm run pos:web` and open http://localhost:3001 with the API running on port 3000. See [Phase 4 architecture and API contracts](./docs/PHASE4_ARCHITECTURE.md) and [setup, validation results, and review checklist](./docs/PHASE4_TEST_RESULTS.md).
+
+
+Android offline cash: see [setup, policy, testing and production limitations](./docs/OFFLINE_CASH.md). Cash records are encrypted in SQLite, provisional until server confirmation, and visible in Sync Status.
+
 ## Mobile POS checkout
 
 The Checkout and Sales tabs support online cash checkout, pending/verified bank transfers, receipts, refunds, inventory deduction, daily reports, and cash shifts. See [Android setup and acceptance checklist](./docs/POS_CHECKOUT.md) and [test results](./docs/POS_TEST_RESULTS.md).
 
-SalonOS is a React Native + Expo foundation for a multi-tenant salon POS. The current app is a UI and architecture foundation: authentication controls validate local form input but do not call a backend or create accounts.
+SalonOS combines an Expo mobile application, a responsive Next.js POS, and an authenticated NestJS/PostgreSQL backend for multi-tenant salon operations.
 
 ## Stack
 
