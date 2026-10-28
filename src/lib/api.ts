@@ -3,6 +3,11 @@ import { tokenStorage } from './token-storage';
 
 const accessTokenKey = 'salonos.access-token';
 const refreshTokenKey = 'salonos.refresh-token';
+let unauthorizedHandler: (() => void) | undefined;
+
+export function setUnauthorizedHandler(handler: () => void) {
+  unauthorizedHandler = handler;
+}
 
 export class ApiError extends Error {
   constructor(message: string, public readonly status?: number) {
@@ -62,6 +67,10 @@ export async function apiRequest<T>(path: string, options: RequestInit = {}, all
     }
   }
   if (!response.ok) {
+    if (response.status === 401) {
+      await clearAccessToken();
+      unauthorizedHandler?.();
+    }
     let message = response.status >= 500 ? 'The server could not complete this request. Please retry.' : `Request failed with status ${response.status}`;
     try {
       const body = await response.json() as { message?: unknown };

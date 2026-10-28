@@ -80,6 +80,8 @@ export type BusinessProfile = {
   id: string; name: string; slug: string;
   branches: { id: string; name: string; code: string; address: string | null; timezone: string }[];
 };
+export type NewBranch = { name: string; code: string; address?: string; timezone?: string };
+export type NewSalonService = { name: string; category?: string; description?: string; priceLkr: number; durationMinutes: number };
 export type Customer = { id: string; firstName: string; lastName: string | null; phone: string | null; email: string | null; notes: string | null; createdAt: string };
 export type CustomerDetail = Customer & { appointments: Appointment[] };
 export type NewCustomer = { firstName: string; lastName?: string; phone?: string; email?: string; notes?: string };
@@ -89,6 +91,24 @@ const useScope = () => useAuthStore((state) => state.accessToken);
 export function useBusinessProfile() {
   const scope = useScope();
   return useQuery({ queryKey: ['salon-profile', scope], queryFn: () => apiRequest<BusinessProfile>('/v1/salon/profile'), enabled: !!scope, staleTime: 5 * 60_000 });
+}
+
+export function useCreateBranch() {
+  const query = useQueryClient();
+  return useMutation({
+    mutationFn: (branch: NewBranch) => apiRequest<BusinessProfile['branches'][number]>('/v1/salon/branches', { method: 'POST', body: JSON.stringify(branch) }),
+    onSuccess: () => { void query.invalidateQueries({ queryKey: ['salon-profile'] }); void query.invalidateQueries({ queryKey: ['checkout'] }); },
+    retry: false,
+  });
+}
+
+export function useCreateSalonService() {
+  const query = useQueryClient();
+  return useMutation({
+    mutationFn: (service: NewSalonService) => apiRequest<SalonService>('/v1/salon/services', { method: 'POST', body: JSON.stringify(service) }),
+    onSuccess: () => { void query.invalidateQueries({ queryKey: ['salon-services'] }); void query.invalidateQueries({ queryKey: ['checkout'] }); },
+    retry: false,
+  });
 }
 
 export function useCustomerList(search: string) {
