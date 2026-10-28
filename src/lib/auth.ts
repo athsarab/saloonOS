@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { lockOffline } from '../offline/device';
-import { apiRequest, clearAccessToken, getAccessToken, getRefreshToken, setAccessToken, setRefreshToken } from './api';
+import { apiRequest, clearAccessToken, getAccessToken, getRefreshToken, setAccessToken, setRefreshToken, setUnauthorizedHandler } from './api';
 
 export type TenantChoice = { id: string; name: string; role: string };
 type AuthState = {
@@ -44,3 +44,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
   },
 }));
+
+setUnauthorizedHandler(() => {
+  useAuthStore.setState({ accessToken: null, tenants: [] });
+});
