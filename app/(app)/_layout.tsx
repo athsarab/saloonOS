@@ -17,11 +17,11 @@ export default function AppLayout() {
       <Tabs.Screen name="checkout" options={{ title: 'POS' }} />
       <Tabs.Screen name="customers" options={{ title: 'Customers' }} />
       <Tabs.Screen name="more" options={{ title: 'More' }} />
-      <Tabs.Screen name="sales" options={{ title: 'Sales & reports', href: null }} />
-      <Tabs.Screen name="settings" options={{ title: 'Business settings', href: null }} />
-      <Tabs.Screen name="sync" options={{ title: 'Offline & sync', href: null }} />
-      <Tabs.Screen name="account-security" options={{ title: 'Account & security', href: null }} />
-      <Tabs.Screen name="offline-checkout" options={{ title: 'Offline cash till', href: null }} />
+      <Tabs.Screen name="sales" options={{ title: 'Sales & reports' }} />
+      <Tabs.Screen name="settings" options={{ title: 'Business settings' }} />
+      <Tabs.Screen name="sync" options={{ title: 'Offline & sync' }} />
+      <Tabs.Screen name="account-security" options={{ title: 'Account & security' }} />
+      <Tabs.Screen name="offline-checkout" options={{ title: 'Offline cash till' }} />
     </Tabs>
   );
 }
