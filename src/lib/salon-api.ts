@@ -1,5 +1,6 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from './api';
+import { useAuthStore } from './auth';
 
 export type DashboardStats = { total: number; completed: number; cancelled: number; upcoming: number };
 export type Appointment = {
@@ -28,4 +29,37 @@ export function useDashboardStats() {
 export function useAppointments(date = new Date()) {
   const bounds = dayBounds(date);
   return useQuery({ queryKey: ['salon-appointments', bounds.from], queryFn: () => apiRequest<AppointmentPage>(`/v1/salon/appointments?from=${encodeURIComponent(bounds.from)}&to=${encodeURIComponent(bounds.to)}&limit=100`) });
+}
+
+export type BusinessProfile = {
+  id: string; name: string; slug: string;
+  branches: { id: string; name: string; code: string; address: string | null; timezone: string }[];
+};
+export type Customer = { id: string; firstName: string; lastName: string | null; phone: string | null; email: string | null; notes: string | null; createdAt: string };
+export type NewCustomer = { firstName: string; lastName?: string; phone?: string; email?: string; notes?: string };
+
+const useScope = () => useAuthStore((state) => state.accessToken);
+
+export function useBusinessProfile() {
+  const scope = useScope();
+  return useQuery({ queryKey: ['salon-profile', scope], queryFn: () => apiRequest<BusinessProfile>('/v1/salon/profile'), enabled: !!scope, staleTime: 5 * 60_000 });
+}
+
+export function useCustomerList(search: string) {
+  const scope = useScope();
+  return useQuery({
+    queryKey: ['salon-customers', scope, search],
+    queryFn: () => apiRequest<{ items: Customer[]; total: number }>(`/v1/salon/customers?limit=50&search=${encodeURIComponent(search)}`),
+    enabled: !!scope,
+    placeholderData: (previous) => previous,
+  });
+}
+
+export function useCreateCustomer() {
+  const query = useQueryClient();
+  return useMutation({
+    mutationFn: (customer: NewCustomer) => apiRequest<Customer>('/v1/salon/customers', { method: 'POST', body: JSON.stringify(customer) }),
+    onSuccess: () => { void query.invalidateQueries({ queryKey: ['salon-customers'] }); void query.invalidateQueries({ queryKey: ['checkout'] }); },
+    retry: false,
+  });
 }

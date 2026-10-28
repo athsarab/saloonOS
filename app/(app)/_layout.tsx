@@ -1,15 +1,27 @@
 import { Redirect, Tabs } from 'expo-router';
-import { CalendarDays, HandCoins, LayoutDashboard, ReceiptText, Settings } from 'lucide-react-native';
-import { useTheme } from '../../src/theme/ThemeProvider';
+import { AppTabBar } from '../../src/components/AppTabBar';
+import { AppLoadingState } from '../../src/components/AppStates';
+import { Screen } from '../../src/components/ui';
 import { useAuthStore } from '../../src/lib/auth';
-import { View } from 'react-native';
-import { OfflineBanner } from '../../src/components/OfflineBanner';
-import { LoadingState } from '../../src/components/ui';
 
 export default function AppLayout() {
-  const { colors } = useTheme();
   const { hydrated, accessToken } = useAuthStore();
-  if (!hydrated) return <LoadingState label="Restoring your secure session…" />;
+  if (!hydrated) return <Screen><AppLoadingState label="Restoring your secure session…" /></Screen>;
   if (!accessToken) return <Redirect href="/login" />;
-  return <View style={{ flex: 1 }}><OfflineBanner /><Tabs screenOptions={{ headerShown: false, tabBarActiveTintColor: colors.primary, tabBarInactiveTintColor: colors.textMuted, tabBarStyle: { backgroundColor: colors.surface, borderTopColor: colors.border }, tabBarLabelStyle: { fontSize: 11, fontWeight: '600' } }}><Tabs.Screen name="index" options={{ title: 'Overview', tabBarIcon: ({ color, size }) => <LayoutDashboard color={color} size={size} /> }} /><Tabs.Screen name="appointments" options={{ title: 'Appointments', tabBarIcon: ({ color, size }) => <CalendarDays color={color} size={size} /> }} /><Tabs.Screen name="checkout" options={{ title: 'Checkout', tabBarIcon: ({ color, size }) => <HandCoins color={color} size={size} /> }} /><Tabs.Screen name="sales" options={{ title: 'Sales', tabBarIcon: ({ color, size }) => <ReceiptText color={color} size={size} /> }} /><Tabs.Screen name="settings" options={{ title: 'Settings', tabBarIcon: ({ color, size }) => <Settings color={color} size={size} /> }} /><Tabs.Screen name="account-security" options={{ href: null }} /><Tabs.Screen name="sync" options={{ title: "Sync Status", tabBarIcon: ({ color, size }) => <ReceiptText color={color} size={size} /> }} /><Tabs.Screen name="offline-checkout" options={{ href: null }} /></Tabs></View>;
+  // The custom tab bar decides which destinations are shown (by role) and which one is highlighted.
+  // Sub-screens stay in this navigator so their existing URLs keep working.
+  return (
+    <Tabs backBehavior="history" tabBar={(props) => <AppTabBar {...props} />} screenOptions={{ headerShown: false }}>
+      <Tabs.Screen name="index" options={{ title: 'Home' }} />
+      <Tabs.Screen name="appointments" options={{ title: 'Appointments' }} />
+      <Tabs.Screen name="checkout" options={{ title: 'POS' }} />
+      <Tabs.Screen name="customers" options={{ title: 'Customers' }} />
+      <Tabs.Screen name="more" options={{ title: 'More' }} />
+      <Tabs.Screen name="sales" options={{ title: 'Sales & reports', href: null }} />
+      <Tabs.Screen name="settings" options={{ title: 'Business settings', href: null }} />
+      <Tabs.Screen name="sync" options={{ title: 'Offline & sync', href: null }} />
+      <Tabs.Screen name="account-security" options={{ title: 'Account & security', href: null }} />
+      <Tabs.Screen name="offline-checkout" options={{ title: 'Offline cash till', href: null }} />
+    </Tabs>
+  );
 }
