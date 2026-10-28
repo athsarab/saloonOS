@@ -1,5 +1,5 @@
-import { AppointmentStatus, CatalogItemType } from '@prisma/client';
-import { IsDateString, IsEnum, IsInt, IsOptional, IsPositive, IsString, IsUUID, Matches, Max, Min, MinLength } from 'class-validator';
+import { AppointmentStatus, CatalogItemType, MembershipRole } from '@prisma/client';
+import { IsDateString, IsEmail, IsEnum, IsInt, IsOptional, IsPositive, IsString, IsUUID, Matches, Max, Min, MinLength } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class UpdateBusinessDto {
@@ -35,6 +35,15 @@ export class StaffDto {
   @IsUUID() userId!: string;
   @IsUUID() branchId!: string;
   @IsOptional() @IsString() title?: string;
+}
+
+export class CreateStaffMemberDto {
+  @IsString() @MinLength(2) displayName!: string;
+  @IsEmail() email!: string;
+  @IsString() @MinLength(8) password!: string;
+  @IsUUID() branchId!: string;
+  @IsOptional() @IsString() title?: string;
+  @IsEnum(MembershipRole) role: MembershipRole = MembershipRole.STYLIST;
 }
 
 export class ScheduleDto {
