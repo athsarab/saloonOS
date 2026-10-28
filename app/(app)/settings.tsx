@@ -156,6 +156,7 @@ function StaffSheet({ visible, branches, onClose, create }: { visible: boolean; 
 }
 
 function CatalogSheet({ visible, type, onClose, createItem, createService }: { visible: boolean; type: 'SERVICE' | 'PRODUCT'; onClose: () => void; createItem: ReturnType<typeof useCreateCatalogItem>; createService: ReturnType<typeof useCreateSalonService> }) {
+  const { colors } = useTheme();
   const [name, setName] = useState('');
   const [category, setCategory] = useState('');
   const [price, setPrice] = useState('');
