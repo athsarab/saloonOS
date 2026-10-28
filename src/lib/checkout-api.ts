@@ -22,6 +22,7 @@ export type CheckoutRequest = {
   cashReceivedLkr?: string; bankReference?: string; expectedTotalLkr?: string;
   items: { itemId: string; quantity: string; assignedStaffProfileId?: string; expectedUnitPriceLkr?: string }[];
 };
+export type NewCatalogItem = { name: string; category?: string; type: CatalogItem['type']; priceLkr: string; trackInventory?: boolean; stockQuantity: string };
 
 // Retain this key with its exact payload until a pending online request is resolved.
 export const requestKey = () => 'pos-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
@@ -38,6 +39,14 @@ export function useBranches() {
 export function useCatalog(search = '') {
   const scope = useScope();
   return useQuery({ queryKey: ['checkout', scope, 'catalog', search], queryFn: () => apiRequest<CatalogItem[]>('/v1/checkout/catalog?search=' + encodeURIComponent(search)), enabled: !!scope });
+}
+export function useCreateCatalogItem() {
+  const query = useQueryClient();
+  return useMutation({
+    mutationFn: (item: NewCatalogItem) => apiRequest<CatalogItem>('/v1/checkout/catalog', { method: 'POST', body: JSON.stringify(item) }),
+    onSuccess: () => { void query.invalidateQueries({ queryKey: ['checkout'] }); void query.invalidateQueries({ queryKey: ['salon-services'] }); },
+    retry: false,
+  });
 }
 export function useCustomers(search: string) {
   const scope = useScope();
