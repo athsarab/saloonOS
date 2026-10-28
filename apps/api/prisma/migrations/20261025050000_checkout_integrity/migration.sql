@@ -1,0 +1,33 @@
+ALTER TABLE "Sale" ADD COLUMN "requestHash" VARCHAR(64) NOT NULL DEFAULT 'legacy';
+ALTER TABLE "Sale" ALTER COLUMN "requestHash" DROP DEFAULT;
+ALTER TABLE "Sale" ADD COLUMN "cashShiftId" UUID;
+ALTER TABLE "Sale" ADD COLUMN "cashReceivedLkr" DECIMAL(12,2);
+ALTER TABLE "Sale" ADD COLUMN "changeLkr" DECIMAL(12,2);
+ALTER TABLE "SaleLine" ADD COLUMN "itemName" VARCHAR(160);
+ALTER TABLE "SaleLine" ADD COLUMN "itemType" "CatalogItemType";
+ALTER TABLE "SaleLine" ADD COLUMN "inventoryDeducted" BOOLEAN NOT NULL DEFAULT false;
+UPDATE "SaleLine" l SET "itemName" = c."name", "itemType" = c."type" FROM "CatalogItem" c WHERE c."id" = l."catalogItemId";
+ALTER TABLE "SaleLine" ALTER COLUMN "itemName" SET NOT NULL;
+ALTER TABLE "SaleLine" ALTER COLUMN "itemType" SET NOT NULL;
+ALTER TABLE "Payment" ADD COLUMN "verifiedAt" TIMESTAMPTZ(3);
+UPDATE "Payment" SET "verifiedAt" = "createdAt" WHERE "status" = 'VERIFIED';
+ALTER TABLE "Refund" ADD COLUMN "idempotencyKey" VARCHAR(120);
+UPDATE "Refund" SET "idempotencyKey" = 'legacy-' || "id"::text;
+ALTER TABLE "Refund" ALTER COLUMN "idempotencyKey" SET NOT NULL;
+ALTER TABLE "Refund" ADD COLUMN "requestHash" VARCHAR(64) NOT NULL DEFAULT 'legacy';
+ALTER TABLE "Refund" ALTER COLUMN "requestHash" DROP DEFAULT;
+ALTER TABLE "Refund" ADD COLUMN "cashShiftId" UUID;
+ALTER TABLE "CashShift" ADD COLUMN "expectedClosingLkr" DECIMAL(12,2);
+ALTER TABLE "CashShift" ADD COLUMN "differenceLkr" DECIMAL(12,2);
+CREATE UNIQUE INDEX "CashShift_tenantId_id_key" ON "CashShift"("tenantId", "id");
+CREATE UNIQUE INDEX "Refund_tenantId_idempotencyKey_key" ON "Refund"("tenantId", "idempotencyKey");
+ALTER TABLE "Sale" ADD CONSTRAINT "Sale_tenantId_cashShiftId_fkey" FOREIGN KEY ("tenantId", "cashShiftId") REFERENCES "CashShift"("tenantId", "id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "Refund" ADD CONSTRAINT "Refund_tenantId_cashShiftId_fkey" FOREIGN KEY ("tenantId", "cashShiftId") REFERENCES "CashShift"("tenantId", "id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "CatalogItem" ADD CONSTRAINT "CatalogItem_nonnegative_stock" CHECK ("stockQuantity" >= 0) NOT VALID;
+ALTER TABLE "Sale" ADD CONSTRAINT "Sale_valid_totals" CHECK ("totalLkr" > 0 AND "discountLkr" >= 0 AND "subtotalLkr" - "discountLkr" + "taxLkr" = "totalLkr") NOT VALID;
+ALTER TABLE "Payment" ADD CONSTRAINT "Payment_positive_amount" CHECK ("amountLkr" > 0) NOT VALID;
+ALTER TABLE "SaleLine" ADD CONSTRAINT "SaleLine_valid_amount" CHECK ("quantity" > 0 AND "unitPriceLkr" >= 0 AND "lineTotalLkr" >= 0) NOT VALID;
+ALTER TABLE "Refund" ADD CONSTRAINT "Refund_positive_amount" CHECK ("amountLkr" > 0) NOT VALID;
+-- A reference cannot be recorded for two live bank transfers in one business.
+-- Keep legacy duplicates untouched; enforce uniqueness for new checkout payments.
+CREATE UNIQUE INDEX "Payment_bank_reference_unique" ON "Payment"("tenantId", upper(btrim("reference"))) WHERE "method" = 'BANK_TRANSFER' AND "status" <> 'FAILED' AND "idempotencyKey" IS NOT NULL AND "reference" IS NOT NULL;
