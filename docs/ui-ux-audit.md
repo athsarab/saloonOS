@@ -76,3 +76,21 @@ Customers list/create, services/catalog management, inventory, staff and schedul
 - Full redesign of POS (`checkout.tsx`), Sales, Sync and Offline checkout. They pick up new tokens and base components but layout is unchanged.
 - Appointment creation, services, inventory, staff, notifications, help screens (no UI exists yet; not shown in More).
 - Custom font loading (Inter would add `expo-font` + a font package; the platform font is used instead — see design-system.md).
+
+## 4. Phase 2 completed work
+
+| Area | Completed |
+| --- | --- |
+| Appointments | Added day navigation, customer/service/staff search, status and staff filters, accessible list rows, loading/error/search-empty states, appointment details, create and edit forms, rescheduling, and cancellation confirmation. Creation and updates use the existing server conflict checks; unavailable staff times are reported as validation errors. |
+| Customers | Customer rows now open a profile sheet with contact details and appointment history. Existing search, add-customer validation, permissions, and server error mapping were preserved. |
+| Feedback | Appointment save errors use friendly server-safe copy, conflict responses explain that another time or staff member is required, and cancellation requires confirmation. |
+| Accessibility | Appointment navigation, filters, list rows, and primary actions have labels and touch targets based on the Phase 1 tokens. |
+| Validation | `npm run lint`, `npm run typecheck`, and `git diff --check` pass for the mobile workspace. |
+
+## 5. Remaining issues and supported-scope limits
+
+- The API exposes services and staff management endpoints, but the mobile app still has no dedicated service catalog or staff-management screens. No unsupported create/edit/delete UI was added.
+- Inventory levels, stock movements, and cash-movement history are not exposed through the mobile API used by this app, so they remain future work.
+- Appointment date and time entry currently uses validated `YYYY-MM-DD` and `HH:MM` fields rather than a native date/time picker dependency. The server remains authoritative for future dates, duration, staff availability, and conflicts.
+- Currency formatting in the existing POS remains LKR because the current checkout API and offline authorization payloads expose LKR fields. Tenant-configurable currency is not currently available from that API.
+- Offline synchronization remains the existing Android-only queue. Phase 2 does not change its storage or confirmation semantics; local receipts continue to be labelled provisional until server synchronization.

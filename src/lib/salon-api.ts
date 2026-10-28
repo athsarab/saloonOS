@@ -5,6 +5,10 @@ import { useAuthStore } from './auth';
 export type DashboardStats = { total: number; completed: number; cancelled: number; upcoming: number };
 export type Appointment = {
   id: string;
+  branchId: string;
+  customerId: string;
+  serviceId: string;
+  staffProfileId?: string | null;
   startsAt: string;
   endsAt: string;
   status: string;
@@ -26,9 +30,50 @@ export function useDashboardStats() {
   return useQuery({ queryKey: ['salon-dashboard', bounds.from], queryFn: () => apiRequest<DashboardStats>(`/v1/salon/dashboard?from=${encodeURIComponent(bounds.from)}&to=${encodeURIComponent(bounds.to)}`) });
 }
 
-export function useAppointments(date = new Date()) {
+export type SalonService = { id: string; name: string; category: string | null; description: string | null; priceLkr: string; durationMinutes: number | null; active: boolean };
+export type SalonStaff = { id: string; branchId: string; title: string | null; user: { displayName: string; email?: string }; active: boolean };
+
+export function useAppointments(date = new Date(), filters?: { staffProfileId?: string; status?: string }) {
   const bounds = dayBounds(date);
-  return useQuery({ queryKey: ['salon-appointments', bounds.from], queryFn: () => apiRequest<AppointmentPage>(`/v1/salon/appointments?from=${encodeURIComponent(bounds.from)}&to=${encodeURIComponent(bounds.to)}&limit=100`) });
+  const query = new URLSearchParams({ from: bounds.from, to: bounds.to, limit: '100' });
+  if (filters?.staffProfileId) query.set('staffProfileId', filters.staffProfileId);
+  if (filters?.status) query.set('status', filters.status);
+  return useQuery({ queryKey: ['salon-appointments', bounds.from, filters], queryFn: () => apiRequest<AppointmentPage>(`/v1/salon/appointments?${query.toString()}`) });
+}
+
+export function useAppointment(id?: string) {
+  const scope = useScope();
+  return useQuery({ queryKey: ['salon-appointment', scope, id], queryFn: () => apiRequest<Appointment & { branch?: { name: string; timezone: string }; notes?: string | null }>(`/v1/salon/appointments/${id}`), enabled: !!scope && !!id });
+}
+
+export function useSalonServices(search = '') {
+  const scope = useScope();
+  return useQuery({ queryKey: ['salon-services', scope, search], queryFn: () => apiRequest<{ items: SalonService[]; total: number }>(`/v1/salon/services?limit=100&search=${encodeURIComponent(search)}`), enabled: !!scope });
+}
+
+export function useSalonStaff() {
+  const scope = useScope();
+  return useQuery({ queryKey: ['salon-staff', scope], queryFn: () => apiRequest<SalonStaff[]>('/v1/salon/staff'), enabled: !!scope });
+}
+
+export type AppointmentInput = { branchId: string; customerId: string; serviceId: string; staffProfileId?: string; startsAt: string; notes?: string };
+
+export function useCreateAppointment() {
+  const query = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: AppointmentInput) => apiRequest<Appointment>('/v1/salon/appointments', { method: 'POST', body: JSON.stringify(payload) }),
+    onSuccess: () => { void query.invalidateQueries({ queryKey: ['salon-appointments'] }); void query.invalidateQueries({ queryKey: ['salon-dashboard'] }); },
+    retry: false,
+  });
+}
+
+export function useUpdateAppointment() {
+  const query = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...payload }: Partial<AppointmentInput> & { id: string; status?: string }) => apiRequest<Appointment>(`/v1/salon/appointments/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+    onSuccess: () => { void query.invalidateQueries({ queryKey: ['salon-appointments'] }); void query.invalidateQueries({ queryKey: ['salon-appointment'] }); void query.invalidateQueries({ queryKey: ['salon-dashboard'] }); },
+    retry: false,
+  });
 }
 
 export type BusinessProfile = {
@@ -36,6 +81,7 @@ export type BusinessProfile = {
   branches: { id: string; name: string; code: string; address: string | null; timezone: string }[];
 };
 export type Customer = { id: string; firstName: string; lastName: string | null; phone: string | null; email: string | null; notes: string | null; createdAt: string };
+export type CustomerDetail = Customer & { appointments: Appointment[] };
 export type NewCustomer = { firstName: string; lastName?: string; phone?: string; email?: string; notes?: string };
 
 const useScope = () => useAuthStore((state) => state.accessToken);
@@ -62,4 +108,9 @@ export function useCreateCustomer() {
     onSuccess: () => { void query.invalidateQueries({ queryKey: ['salon-customers'] }); void query.invalidateQueries({ queryKey: ['checkout'] }); },
     retry: false,
   });
+}
+
+export function useCustomer(id?: string) {
+  const scope = useScope();
+  return useQuery({ queryKey: ['salon-customer', scope, id], queryFn: () => apiRequest<CustomerDetail>(`/v1/salon/customers/${id}`), enabled: !!scope && !!id });
 }
