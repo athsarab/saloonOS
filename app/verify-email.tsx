@@ -88,7 +88,7 @@ export default function VerifyEmailScreen() {
       description="Enter the 6-digit code we emailed you. Codes expire in 15 minutes."
       onBack={() => (router.canGoBack() ? router.back() : router.replace('/login'))}
     >
-      <AppTextField label="Email" placeholder="you@yoursalon.lk" value={email} onChangeText={setEmail} autoCapitalize="none" autoCorrect={false} autoComplete="email" textContentType="emailAddress" keyboardType="email-address" editable={!pending} error={fieldErrors.email} />
+      <AppTextField label="Email" required placeholder="you@yoursalon.lk" value={email} onChangeText={setEmail} autoCapitalize="none" autoCorrect={false} autoComplete="email" textContentType="emailAddress" keyboardType="email-address" editable={!pending} error={fieldErrors.email} />
       <AppTextField
         label="Verification code"
         placeholder={fromLink ? undefined : '6-digit code'}
@@ -111,7 +111,7 @@ export default function VerifyEmailScreen() {
           <Text style={[type.caption, styles.infoText, { color: colors.text }]}>{notice.text}</Text>
         </View>
       ) : null}
-      <AppButton label="Verify email" loading={pending === 'verify'} disabled={pending === 'resend'} onPress={() => void verify()} />
+      <AppButton label="Verify email" variant="auth" loading={pending === 'verify'} disabled={pending === 'resend'} onPress={() => void verify()} />
       <AppButton label="Send a new code" variant="secondary" loading={pending === 'resend'} disabled={pending === 'verify'} onPress={() => void resend()} />
     </AuthLayout>
   );
