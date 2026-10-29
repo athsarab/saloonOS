@@ -11,6 +11,7 @@ import { AppSearchBar } from '../../src/components/AppSearchBar';
 import { AppStatusBadge } from '../../src/components/AppStatusBadge';
 import { AppEmptyState, AppErrorState, AppInlineError, AppLoadingState } from '../../src/components/AppStates';
 import { AppTextField } from '../../src/components/AppTextField';
+import { useToast } from '../../src/components/AppToast';
 import { Screen } from '../../src/components/ui';
 import { useBranches } from '../../src/lib/checkout-api';
 import { friendlyError } from '../../src/lib/errors';
@@ -109,11 +110,25 @@ function FilterChip({ label, selected, onPress }: { label: string; selected: boo
 
 function AppointmentDetail({ appointment, visible, canEdit, loading, onClose, onEdit }: { appointment?: Appointment & { branch?: { name: string; timezone: string }; notes?: string | null }; visible: boolean; canEdit: boolean; loading: boolean; onClose: () => void; onEdit: (item: Appointment) => void }) {
   const { colors } = useTheme();
+  const toast = useToast();
   const update = useUpdateAppointment();
   const [confirmCancel, setConfirmCancel] = useState(false);
-  const cancel = async () => { if (!appointment) return; await update.mutateAsync({ id: appointment.id, status: 'CANCELLED' }); setConfirmCancel(false); onClose(); };
+  const [cancelError, setCancelError] = useState('');
+  const cancel = async () => {
+    if (!appointment) return;
+    setCancelError('');
+    try {
+      await update.mutateAsync({ id: appointment.id, status: 'CANCELLED' });
+      setConfirmCancel(false);
+      toast.show('Appointment cancelled successfully.');
+      onClose();
+    } catch (reason) {
+      setCancelError(friendlyError(reason, { fallback: feedback.appointment.saveFailed }));
+    }
+  };
   return <><AppBottomSheet visible={visible} title="Appointment details" onClose={onClose} locked={update.isPending}>
     {loading ? <AppLoadingState label="Loading appointment…" /> : appointment ? <View style={styles.sheetContent}>
+      <AppInlineError message={cancelError} />
       <AppStatusBadge label={appointmentStatus[appointment.status]?.label ?? appointment.status} tone={appointmentStatus[appointment.status]?.tone ?? 'neutral'} />
       <Text style={[type.heading, { color: colors.text }]}>{fullName(appointment.customer)}</Text>
       <Text style={[type.body, { color: colors.textMuted }]}>{appointment.service?.name ?? 'Service'} · {formatDateTime(appointment.startsAt, appointment.branch?.timezone)}</Text>
@@ -126,6 +141,7 @@ function AppointmentDetail({ appointment, visible, canEdit, loading, onClose, on
 
 function AppointmentForm({ visible, appointment, onClose }: { visible: boolean; appointment: Appointment | null; onClose: () => void }) {
   const { colors } = useTheme();
+  const toast = useToast();
   const branches = useBranches(), customers = useCustomerList(''), services = useSalonServices(), staff = useSalonStaff();
   const create = useCreateAppointment(), update = useUpdateAppointment();
   const [branchId, setBranchId] = useState(appointment?.branchId ?? ''), [customerId, setCustomerId] = useState(appointment?.customerId ?? ''), [serviceId, setServiceId] = useState(appointment?.serviceId ?? ''), [staffId, setStaffId] = useState(appointment?.staffProfileId ?? ''), [date, setDate] = useState(appointment ? dateKey(new Date(appointment.startsAt)) : dateKey(new Date())), [time, setTime] = useState(appointment ? new Date(appointment.startsAt).toTimeString().slice(0, 5) : '09:00'), [notes, setNotes] = useState(appointment?.notes ?? ''), [error, setError] = useState('');
@@ -136,6 +152,7 @@ function AppointmentForm({ visible, appointment, onClose }: { visible: boolean; 
     try {
       const payload: AppointmentInput = { branchId, customerId, serviceId, staffProfileId: staffId || undefined, startsAt: localStart(date, time), notes: notes.trim() || undefined };
       if (appointment) await update.mutateAsync({ ...payload, id: appointment.id }); else await create.mutateAsync(payload);
+      toast.show(appointment ? 'Appointment updated successfully.' : 'Appointment booked successfully.');
       onClose();
     } catch (reason) { setError(friendlyError(reason, { fallback: feedback.appointment.saveFailed, byStatus: { 409: feedback.appointment.conflict } })); }
   };
@@ -147,8 +164,8 @@ function AppointmentForm({ visible, appointment, onClose }: { visible: boolean; 
     {!isEdit ? <><Text style={[type.label, { color: colors.text }]}>Customer</Text><View style={styles.wrap}>{customers.data?.items.slice(0, 20).map((item) => <FilterChip key={item.id} label={fullName(item)} selected={customerId === item.id} onPress={() => setCustomerId(item.id)} />)}</View></> : null}
     <Text style={[type.label, { color: colors.text }]}>Service</Text><View style={styles.wrap}>{services.data?.items.map((item) => <FilterChip key={item.id} label={`${item.name} · ${item.durationMinutes ?? '?'} min`} selected={serviceId === item.id} onPress={() => setServiceId(item.id)} />)}</View>
     <Text style={[type.label, { color: colors.text }]}>Staff (optional)</Text><View style={styles.wrap}>{staff.data?.filter((item) => !branchId || item.branchId === branchId).map((item) => <FilterChip key={item.id} label={item.user.displayName} selected={staffId === item.id} onPress={() => setStaffId(staffId === item.id ? '' : item.id)} />)}</View>
-    <AppTextField label="Date" value={date} onChangeText={setDate} placeholder="YYYY-MM-DD" autoCapitalize="none" />
-    <AppTextField label="Start time" value={time} onChangeText={setTime} placeholder="HH:MM" keyboardType="numbers-and-punctuation" autoCapitalize="none" />
+    <AppTextField label="Date" required value={date} onChangeText={setDate} placeholder="YYYY-MM-DD" autoCapitalize="none" />
+    <AppTextField label="Start time" required value={time} onChangeText={setTime} placeholder="HH:MM" keyboardType="numbers-and-punctuation" autoCapitalize="none" />
     <AppTextField label="Notes (optional)" value={notes} onChangeText={setNotes} multiline maxLength={500} />
     <AppButton label={isEdit ? 'Save changes' : 'Book appointment'} loading={create.isPending || update.isPending} onPress={() => void submit()} />
   </AppBottomSheet>;
