@@ -94,6 +94,7 @@ export default function HomeScreen() {
           </View>
 
           <TodaySummary
+            role={role}
             canReport={canReport}
             stats={stats.data}
             statsError={stats.isError ? friendlyError(stats.error, { fallback: 'Please try again.' }) : undefined}
@@ -169,6 +170,7 @@ function Section({ title, actionLabel, onAction, children }: { title: string; ac
 }
 
 type SummaryProps = {
+  role: ReturnType<typeof usePermissions>['role'];
   canReport: boolean;
   stats?: { total: number; completed: number; cancelled: number; upcoming: number };
   statsError?: string;
@@ -177,7 +179,7 @@ type SummaryProps = {
   salesCount?: number;
 };
 
-function TodaySummary({ canReport, stats, statsError, onRetry, net, salesCount }: SummaryProps) {
+function TodaySummary({ role, canReport, stats, statsError, onRetry, net, salesCount }: SummaryProps) {
   const { colors } = useTheme();
   const metric = (label: string, value: string | number | undefined) => (
     <View accessible accessibilityLabel={`${label}: ${value ?? 'loading'}`} style={styles.metric}>
@@ -187,7 +189,7 @@ function TodaySummary({ canReport, stats, statsError, onRetry, net, salesCount }
   );
   return (
     <AppCard muted>
-      <Text style={[type.label, { color: colors.textMuted }]}>Today</Text>
+      <Text style={[type.label, { color: colors.textMuted }]}>{role === 'OWNER' || role === 'MANAGER' ? 'Business today' : role === 'CASHIER' ? 'Till today' : 'Your day'}</Text>
       {canReport && net !== undefined ? (
         <View accessible accessibilityLabel={`Net sales today: ${net}`} style={styles.net}>
           <Text numberOfLines={1} adjustsFontSizeToFit style={[type.display, { color: colors.text }]}>{net}</Text>
