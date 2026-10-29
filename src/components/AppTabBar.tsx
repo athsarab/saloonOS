@@ -36,7 +36,7 @@ export function AppTabBar({ state, emitter, navigateToTab }: TabBarProps) {
   return (
     <View>
       <AppOfflineBanner />
-      <View accessibilityRole="tablist" style={[styles.bar, { backgroundColor: colors.surface, borderTopColor: colors.border, paddingBottom: Math.max(insets.bottom, spacing.sm) }]}>
+      <View accessibilityRole="tablist" style={[styles.bar, { backgroundColor: colors.navigation, borderTopColor: colors.divider, paddingBottom: Math.max(insets.bottom, spacing.sm) }]}>
         {visible.map((item) => {
           const route = state.routes.find((value) => value.name === item.name);
           if (!route) return null;
@@ -57,7 +57,7 @@ export function AppTabBar({ state, emitter, navigateToTab }: TabBarProps) {
               onLongPress={() => emitter.emit({ type: 'tabLongPress', target: route.key })}
               style={styles.item}
             >
-              <View style={[styles.indicator, selected && { backgroundColor: colors.primarySoft }]}>
+              <View style={[styles.indicator, selected && { backgroundColor: colors.navigationActive }]}>
                 <Icon color={color} size={iconSize.lg - 2} strokeWidth={selected ? 2.25 : 2} />
               </View>
               <Text numberOfLines={1} style={[type.micro, { color: selected ? colors.primary : colors.textMuted }]}>{item.label}</Text>

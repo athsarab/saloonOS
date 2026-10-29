@@ -26,13 +26,13 @@ export const AppTextField = forwardRef<TextInputInstance, AppTextFieldProps>(fun
   return (
     <View style={styles.field}>
       <Text style={[type.label, { color: colors.text }]}>{label}{required ? <Text style={{ color: colors.danger }}> *</Text> : null}</Text>
-      <View style={[styles.box, { borderColor, backgroundColor: editable ? colors.surface : colors.surfaceMuted }]}>
+      <View style={[styles.box, { borderColor, backgroundColor: editable ? colors.input : colors.surfaceMuted }]}>
         <TextInput
           ref={ref}
           accessibilityLabel={required ? `${label}, required` : label}
           accessibilityHint={error ?? hint}
           editable={editable}
-          placeholderTextColor={colors.textSubtle}
+          placeholderTextColor={colors.inputPlaceholder}
           secureTextEntry={hidden}
           onFocus={(event) => { setFocused(true); onFocus?.(event); }}
           onBlur={(event) => { setFocused(false); onBlur?.(event); }}
