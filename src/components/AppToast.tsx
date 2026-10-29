@@ -52,7 +52,7 @@ function AppToast({ toast, onHide }: { toast: Toast; onHide: () => void }) {
       accessibilityLiveRegion="polite"
       accessibilityRole="alert"
       pointerEvents="none"
-      style={[styles.toast, elevation.overlay, { backgroundColor: colors.text, bottom: insets.bottom + 88, opacity }]}
+      style={[styles.toast, elevation.overlay, { backgroundColor: colors.text, bottom: insets.bottom + 88, opacity, shadowColor: colors.text }]}
     >
       <Icon color={iconColor} size={iconSize.md} />
       <Text style={[type.label, styles.message, { color: colors.background }]}>{toast.message}</Text>

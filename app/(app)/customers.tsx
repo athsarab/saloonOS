@@ -149,7 +149,7 @@ function AddCustomerSheet({ visible, onClose }: { visible: boolean; onClose: () 
   return (
     <AppBottomSheet visible={visible} title="Add customer" onClose={onClose} locked={create.isPending}>
       <Controller control={control} name="firstName" rules={{ validate: (value) => value.trim().length > 0 || 'Enter the customer’s first name' }} render={({ field }) => (
-        <AppTextField label="First name" placeholder="e.g. Nadeesha" autoCapitalize="words" autoComplete="name-given" textContentType="givenName" returnKeyType="next" maxLength={80} value={field.value} onChangeText={field.onChange} onBlur={field.onBlur} error={errors.firstName?.message} />
+        <AppTextField label="First name" required placeholder="e.g. Nadeesha" autoCapitalize="words" autoComplete="name-given" textContentType="givenName" returnKeyType="next" maxLength={80} value={field.value} onChangeText={field.onChange} onBlur={field.onBlur} error={errors.firstName?.message} />
       )} />
       <Controller control={control} name="lastName" render={({ field }) => (
         <AppTextField label="Last name (optional)" placeholder="e.g. Fernando" autoCapitalize="words" autoComplete="name-family" textContentType="familyName" maxLength={80} value={field.value} onChangeText={field.onChange} onBlur={field.onBlur} />

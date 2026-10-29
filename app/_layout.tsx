@@ -11,13 +11,18 @@ import '../global.css';
 const queryClient = new QueryClient();
 
 function RootStack() {
-  const { colors } = useTheme();
-  return <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }} />;
+  const { colors, appearance } = useTheme();
+  return (
+    <>
+      <StatusBar style={appearance === 'light' ? 'dark' : 'light'} />
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }} />
+    </>
+  );
 }
 
 export default function RootLayout() {
   const hydrate = useAuthStore((state) => state.hydrate);
   React.useEffect(() => { void hydrate(); }, [hydrate]);
   React.useEffect(() => startOfflineRuntime(), []);
-  return <QueryClientProvider client={queryClient}><ThemeProvider><ToastProvider><StatusBar style="auto" /><RootStack /></ToastProvider></ThemeProvider></QueryClientProvider>;
+  return <QueryClientProvider client={queryClient}><ThemeProvider><ToastProvider><RootStack /></ToastProvider></ThemeProvider></QueryClientProvider>;
 }

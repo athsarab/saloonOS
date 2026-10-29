@@ -58,17 +58,17 @@ export default function ResetPasswordScreen() {
     >
       {fromLink ? null : (
         <Controller control={control} name="token" rules={{ validate: (value) => value.trim().length >= 20 || 'Paste the full reset code from the email' }} render={({ field }) => (
-          <AppTextField label="Reset code" placeholder="Paste the code from the email" autoCapitalize="none" autoCorrect={false} autoComplete="off" returnKeyType="next" submitBehavior="submit" onSubmitEditing={() => passwordRef.current?.focus()} editable={!isSubmitting} value={field.value} onChangeText={field.onChange} onBlur={field.onBlur} error={errors.token?.message} />
+          <AppTextField label="Reset code" required placeholder="Paste the code from the email" autoCapitalize="none" autoCorrect={false} autoComplete="off" returnKeyType="next" submitBehavior="submit" onSubmitEditing={() => passwordRef.current?.focus()} editable={!isSubmitting} value={field.value} onChangeText={field.onChange} onBlur={field.onBlur} error={errors.token?.message} />
         )} />
       )}
       <Controller control={control} name="password" rules={{ required: 'Enter a new password', minLength: { value: 8, message: 'Use at least 8 characters' } }} render={({ field }) => (
-        <AppTextField ref={passwordRef} label="New password" placeholder="At least 8 characters" secureToggle autoCapitalize="none" autoCorrect={false} autoComplete="new-password" textContentType="newPassword" returnKeyType="next" submitBehavior="submit" onSubmitEditing={() => confirmRef.current?.focus()} editable={!isSubmitting} value={field.value} onChangeText={field.onChange} onBlur={field.onBlur} error={errors.password?.message} />
+        <AppTextField ref={passwordRef} label="New password" required hint="Use at least 8 characters." placeholder="At least 8 characters" secureToggle autoCapitalize="none" autoCorrect={false} autoComplete="new-password" textContentType="newPassword" returnKeyType="next" submitBehavior="submit" onSubmitEditing={() => confirmRef.current?.focus()} editable={!isSubmitting} value={field.value} onChangeText={field.onChange} onBlur={field.onBlur} error={errors.password?.message} />
       )} />
       <Controller control={control} name="confirm" rules={{ validate: (value, form) => value === form.password || 'Passwords don’t match' }} render={({ field }) => (
-        <AppTextField ref={confirmRef} label="Confirm new password" placeholder="Re-enter the new password" secureToggle autoCapitalize="none" autoCorrect={false} autoComplete="new-password" textContentType="newPassword" returnKeyType="go" onSubmitEditing={onSubmit} editable={!isSubmitting} value={field.value} onChangeText={field.onChange} onBlur={field.onBlur} error={errors.confirm?.message} />
+        <AppTextField ref={confirmRef} label="Confirm new password" required placeholder="Re-enter the new password" secureToggle autoCapitalize="none" autoCorrect={false} autoComplete="new-password" textContentType="newPassword" returnKeyType="go" onSubmitEditing={onSubmit} editable={!isSubmitting} value={field.value} onChangeText={field.onChange} onBlur={field.onBlur} error={errors.confirm?.message} />
       )} />
       <AppInlineError message={errors.root?.message} />
-      <AppButton label="Update password" loading={isSubmitting} onPress={onSubmit} />
+      <AppButton label="Update password" variant="auth" loading={isSubmitting} onPress={onSubmit} />
       {errors.root ? <AppButton label="Request a new reset link" variant="ghost" onPress={() => router.replace('/forgot-password')} /> : null}
     </AuthLayout>
   );

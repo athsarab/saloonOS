@@ -19,9 +19,9 @@ export function AppBottomSheet({ visible, title, onClose, children, locked = fal
   const close = () => { if (!locked) onClose(); };
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={close}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={[styles.backdrop, { backgroundColor: colors.overlay }]}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={[styles.backdrop, { backgroundColor: colors.overlay }]}>
         <Pressable style={StyleSheet.absoluteFill} accessibilityLabel="Close panel" accessibilityRole="button" onPress={close} />
-        <View accessibilityViewIsModal style={[styles.sheet, elevation.overlay, { backgroundColor: colors.surfaceRaised, marginTop: insets.top + spacing.xxl }]}>
+        <View accessibilityViewIsModal style={[styles.sheet, elevation.overlay, { backgroundColor: colors.surfaceRaised, marginTop: insets.top + spacing.xxl, shadowColor: colors.text }]}>
           <View style={[styles.handle, { backgroundColor: colors.borderStrong }]} />
           <View style={styles.header}>
             <Text accessibilityRole="header" style={[type.heading, styles.title, { color: colors.text }]}>{title}</Text>
@@ -29,7 +29,7 @@ export function AppBottomSheet({ visible, title, onClose, children, locked = fal
               <X size={iconSize.lg - 2} color={colors.textMuted} />
             </Pressable>
           </View>
-          <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.lg }]}>
+          <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'} contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.lg }]}>
             {children}
           </ScrollView>
         </View>

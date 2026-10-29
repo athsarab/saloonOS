@@ -3,7 +3,7 @@ import { ActivityIndicator, Pressable, PressableProps, StyleProp, StyleSheet, Te
 import { useTheme } from '../theme/ThemeProvider';
 import { control, radius, spacing, type } from '../theme/tokens';
 
-export type AppButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
+export type AppButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'auth';
 
 export type AppButtonProps = Omit<PressableProps, 'style' | 'children'> & {
   label: string;
@@ -23,6 +23,7 @@ export function AppButton({ label, variant = 'primary', size = 'md', loading, di
     secondary: { background: colors.surface, text: colors.text, border: colors.borderStrong },
     ghost: { background: 'transparent', text: colors.primary, border: 'transparent' },
     danger: { background: colors.danger, text: colors.onDanger, border: colors.danger },
+    auth: { background: colors.text, text: colors.background, border: colors.text },
   }[variant];
 
   return (
