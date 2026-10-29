@@ -2,7 +2,7 @@ import { ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { ChevronRight } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeProvider';
-import { iconSize, radius, spacing, type } from '../theme/tokens';
+import { iconSize, layout, radius, spacing, type } from '../theme/tokens';
 
 type AppListItemProps = {
   title: string;
@@ -62,8 +62,8 @@ export function AppAvatar({ name }: { name: string }) {
 }
 
 const styles = StyleSheet.create({
-  row: { alignItems: 'center', flexDirection: 'row', gap: spacing.md, minHeight: 60, paddingHorizontal: spacing.lg, paddingVertical: spacing.md },
+  row: { alignItems: 'center', borderBottomWidth: 0, flexDirection: 'row', gap: spacing.md, minHeight: 60, paddingHorizontal: layout.screenGutter, paddingVertical: spacing.md },
   copy: { flex: 1, gap: spacing.xxs },
   icon: { alignItems: 'center', borderRadius: radius.sm + 2, height: 36, justifyContent: 'center', width: 36 },
-  avatar: { alignItems: 'center', borderRadius: 18, height: 36, justifyContent: 'center', width: 36 },
+  avatar: { alignItems: 'center', borderRadius: radius.pill, height: 36, justifyContent: 'center', width: 36 },
 });

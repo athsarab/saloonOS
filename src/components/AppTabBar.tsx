@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CalendarDays, Home, LucideIcon, MoreHorizontal, ShoppingBag, Users } from 'lucide-react-native';
 import { usePermissions } from '../lib/permissions';
 import { useTheme } from '../theme/ThemeProvider';
-import { iconSize, radius, spacing, type } from '../theme/tokens';
+import { control, iconSize, radius, spacing, type } from '../theme/tokens';
 import { AppOfflineBanner } from './AppOfflineBanner';
 
 type TabBarProps = Parameters<NonNullable<ComponentProps<typeof Tabs>['tabBar']>>[0];
@@ -71,6 +71,6 @@ export function AppTabBar({ state, emitter, navigateToTab }: TabBarProps) {
 
 const styles = StyleSheet.create({
   bar: { borderTopWidth: StyleSheet.hairlineWidth, flexDirection: 'row', paddingHorizontal: spacing.xs, paddingTop: spacing.xs + 2 },
-  item: { alignItems: 'center', flex: 1, gap: spacing.xxs, justifyContent: 'center', minHeight: 56 },
+  item: { alignItems: 'center', flex: 1, gap: spacing.xxs, justifyContent: 'center', minHeight: control.tab },
   indicator: { alignItems: 'center', borderRadius: radius.pill, height: 30, justifyContent: 'center', width: 56 },
 });

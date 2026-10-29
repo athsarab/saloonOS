@@ -1,7 +1,7 @@
 import { PropsWithChildren } from 'react';
 import { Pressable, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 import { useTheme } from '../theme/ThemeProvider';
-import { radius, spacing } from '../theme/tokens';
+import { layout, radius, spacing } from '../theme/tokens';
 
 type AppCardProps = PropsWithChildren<{
   /** Set false for cards that hold edge-to-edge list rows. */
@@ -29,6 +29,6 @@ export function AppCard({ children, padded = true, muted, style, onPress, access
 }
 
 const styles = StyleSheet.create({
-  card: { borderRadius: radius.lg, borderWidth: 1, overflow: 'hidden' },
+  card: { borderRadius: radius.lg, borderWidth: layout.divider, overflow: 'hidden' },
   padded: { gap: spacing.md, padding: spacing.lg },
 });
