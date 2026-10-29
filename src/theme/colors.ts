@@ -3,7 +3,7 @@ export type ThemeColors = {
   text: string; textMuted: string; textSubtle: string;
   border: string; borderStrong: string; divider: string;
   primary: string; primarySoft: string; onPrimary: string; onDanger: string;
-  success: string; successSoft: string; warning: string; warningSoft: string;
+  success: string; successSoft: string; warning: string; warningSoft: string; onInfo: string;
   danger: string; dangerSoft: string; info: string; infoSoft: string;
   input: string; inputPlaceholder: string; navigation: string; navigationActive: string;
   dialog: string; disabled: string; focus: string; overlay: string;
@@ -16,7 +16,7 @@ const light = {
   text: '#171717', textMuted: '#737373', textSubtle: '#9A9A96',
   border: '#E7E7E5', borderStrong: '#D5D5D1', divider: '#E7E7E5',
   primary: '#6558D3', primarySoft: '#EFEDFB', onPrimary: '#FFFFFF', onDanger: '#FFFFFF',
-  success: '#12805C', successSoft: '#E8F5EF', warning: '#B54708', warningSoft: '#FEF3E7',
+  success: '#12805C', successSoft: '#E8F5EF', warning: '#B54708', warningSoft: '#FEF3E7', onInfo: '#FFFFFF',
   danger: '#C4321F', dangerSoft: '#FDECEA', info: '#1D5FD1', infoSoft: '#EAF1FD',
   input: '#FFFFFF', inputPlaceholder: '#9A9A96', navigation: '#FFFFFF', navigationActive: '#EFEDFB',
   dialog: '#FFFFFF', disabled: '#B8B8B3', focus: '#6558D3',
@@ -28,7 +28,7 @@ const dark = {
   text: '#F2F3F5', textMuted: '#A0A6B1', textSubtle: '#6F7581',
   border: '#2C2E33', borderStrong: '#3B3E44', divider: '#2C2E33',
   primary: '#9B91F0', primarySoft: '#26233F', onPrimary: '#14112B', onDanger: '#FFFFFF',
-  success: '#4CC38A', successSoft: '#15291F', warning: '#F5A65B', warningSoft: '#33230F',
+  success: '#4CC38A', successSoft: '#15291F', warning: '#F5A65B', warningSoft: '#33230F', onInfo: '#FFFFFF',
   danger: '#F0786A', dangerSoft: '#3A1A17', info: '#76A6F5', infoSoft: '#162540',
   input: '#18191C', inputPlaceholder: '#6F7581', navigation: '#18191C', navigationActive: '#26233F',
   dialog: '#212226', disabled: '#5D626B', focus: '#9B91F0',

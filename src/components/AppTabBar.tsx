@@ -36,12 +36,13 @@ export function AppTabBar({ state, emitter, navigateToTab }: TabBarProps) {
   return (
     <View>
       <AppOfflineBanner />
-      <View accessibilityRole="tablist" style={[styles.bar, { backgroundColor: colors.navigation, borderTopColor: colors.divider, paddingBottom: Math.max(insets.bottom, spacing.sm) }]}>
+      <View accessibilityRole="tablist" style={[styles.bar, { paddingBottom: Math.max(insets.bottom, spacing.sm) }]}>
+        <View style={[styles.pill, { backgroundColor: colors.text, shadowColor: colors.background }]}>
         {visible.map((item) => {
           const route = state.routes.find((value) => value.name === item.name);
           if (!route) return null;
           const selected = active === item.name;
-          const color = selected ? colors.primary : colors.textMuted;
+          const color = selected ? colors.text : colors.background;
           const Icon = item.icon;
           const onPress = () => {
             const event = emitter.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
@@ -57,20 +58,22 @@ export function AppTabBar({ state, emitter, navigateToTab }: TabBarProps) {
               onLongPress={() => emitter.emit({ type: 'tabLongPress', target: route.key })}
               style={styles.item}
             >
-              <View style={[styles.indicator, selected && { backgroundColor: colors.navigationActive }]}>
+              <View style={[styles.indicator, selected && { backgroundColor: colors.surfaceRaised }]}>
                 <Icon color={color} size={iconSize.lg - 2} strokeWidth={selected ? 2.25 : 2} />
+                {selected ? <Text numberOfLines={1} style={[type.micro, { color }]}>{item.label}</Text> : null}
               </View>
-              <Text numberOfLines={1} style={[type.micro, { color: selected ? colors.primary : colors.textMuted }]}>{item.label}</Text>
             </Pressable>
           );
         })}
+        </View>
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  bar: { borderTopWidth: StyleSheet.hairlineWidth, flexDirection: 'row', paddingHorizontal: spacing.xs, paddingTop: spacing.xs + 2 },
-  item: { alignItems: 'center', flex: 1, gap: spacing.xxs, justifyContent: 'center', minHeight: control.tab },
-  indicator: { alignItems: 'center', borderRadius: radius.pill, height: 30, justifyContent: 'center', width: 56 },
+  bar: { paddingHorizontal: spacing.md, paddingTop: spacing.sm },
+  pill: { alignItems: 'center', borderRadius: radius.pill, elevation: 8, flexDirection: 'row', justifyContent: 'space-around', minHeight: control.tab, paddingHorizontal: spacing.xs, shadowOpacity: 0.16, shadowRadius: 12, shadowOffset: { width: 0, height: 5 } },
+  item: { alignItems: 'center', flex: 1, justifyContent: 'center', minHeight: control.tab },
+  indicator: { alignItems: 'center', borderRadius: radius.pill, flexDirection: 'row', gap: spacing.sm, justifyContent: 'center', minHeight: 36, minWidth: 42, paddingHorizontal: spacing.sm },
 });
