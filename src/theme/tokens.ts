@@ -8,6 +8,10 @@ export const iconSize = { sm: 16, md: 20, lg: 24 } as const;
 
 export const touch = { min: 44 } as const;
 
+export const control = { button: 48, buttonSm: 40, input: 48, tab: 56 } as const;
+
+export const layout = { screenGutter: spacing.lg, sectionGap: spacing.xxl, cardGap: spacing.md, divider: 1 } as const;
+
 const text = (fontSize: number, lineHeight: number, fontWeight: TextStyle['fontWeight']): TextStyle => ({ fontSize, lineHeight, fontWeight });
 
 export const type = {
