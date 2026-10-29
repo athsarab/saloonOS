@@ -21,11 +21,11 @@ export const AppTextField = forwardRef<TextInputInstance, AppTextFieldProps>(fun
   const [focused, setFocused] = useState(false);
   const [revealed, setRevealed] = useState(false);
   const hidden = secureToggle ? !revealed : secureTextEntry;
-  const borderColor = error ? colors.danger : focused ? colors.primary : colors.borderStrong;
+  const borderColor = error ? colors.danger : focused ? colors.focus : colors.borderStrong;
 
   return (
     <View style={styles.field}>
-      <Text style={[type.label, { color: colors.text }]}>{label}{required ? <Text style={{ color: colors.danger }}> *</Text> : null}</Text>
+      <Text accessibilityRole="text" style={[type.label, { color: colors.text }]}>{label}{required ? <Text style={{ color: colors.danger }}> *</Text> : null}</Text>
       <View style={[styles.box, { borderColor, backgroundColor: editable ? colors.input : colors.surfaceMuted }]}>
         <TextInput
           ref={ref}

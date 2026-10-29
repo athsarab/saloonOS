@@ -19,8 +19,8 @@ export function AuthLayout({ title, description, onBack, footer, children }: Aut
   const { colors } = useTheme();
   return (
     <SafeAreaView style={[styles.flex, { backgroundColor: colors.background }]}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.flex}>
+        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}>
           <View style={styles.inner}>
             {onBack ? null : <Logo />}
             <AppHeader size="auth" title={title} description={description} onBack={onBack} />
