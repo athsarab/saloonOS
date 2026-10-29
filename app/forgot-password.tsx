@@ -46,10 +46,10 @@ export default function ForgotPasswordScreen() {
   return (
     <AuthLayout title="Reset your password" description="Enter the email you sign in with and we’ll send you a reset link." onBack={back}>
       <Controller control={control} name="email" rules={{ validate: (value) => !value.trim() ? 'Enter your email address' : emailPattern.test(value.trim()) || 'Enter a valid email address' }} render={({ field }) => (
-        <AppTextField label="Email" placeholder="you@yoursalon.lk" autoCapitalize="none" autoCorrect={false} autoComplete="email" textContentType="emailAddress" keyboardType="email-address" returnKeyType="send" onSubmitEditing={onSubmit} editable={!isSubmitting} value={field.value} onChangeText={field.onChange} onBlur={field.onBlur} error={errors.email?.message} />
+        <AppTextField label="Email" required placeholder="you@yoursalon.lk" autoCapitalize="none" autoCorrect={false} autoComplete="email" textContentType="emailAddress" keyboardType="email-address" returnKeyType="send" onSubmitEditing={onSubmit} editable={!isSubmitting} value={field.value} onChangeText={field.onChange} onBlur={field.onBlur} error={errors.email?.message} />
       )} />
       <AppInlineError message={errors.root?.message} />
-      <AppButton label="Send reset link" loading={isSubmitting} onPress={onSubmit} />
+      <AppButton label="Send reset link" variant="auth" loading={isSubmitting} onPress={onSubmit} />
     </AuthLayout>
   );
 }

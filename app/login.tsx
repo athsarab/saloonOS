@@ -50,6 +50,7 @@ export default function LoginScreen() {
       <Controller control={control} name="email" rules={{ validate: (value) => !value.trim() ? 'Enter your email address' : emailPattern.test(value.trim()) || 'Enter a valid email address' }} render={({ field }) => (
         <AppTextField
           label="Email"
+          required
           placeholder="you@yoursalon.lk"
           autoCapitalize="none"
           autoCorrect={false}
@@ -70,6 +71,7 @@ export default function LoginScreen() {
         <AppTextField
           ref={passwordRef}
           label="Password"
+          required
           placeholder="Your password"
           secureToggle
           autoCapitalize="none"
@@ -87,7 +89,7 @@ export default function LoginScreen() {
       )} />
       <TextLink label="Forgot password?" align="right" onPress={() => router.push('/forgot-password')} />
       <AppInlineError message={errors.root?.message} />
-      <AppButton label="Sign in" loading={isSubmitting} onPress={onSubmit} />
+      <AppButton label="Sign in" variant="auth" loading={isSubmitting} onPress={onSubmit} />
       <TextLink label="Verify your email" align="center" onPress={() => router.push({ pathname: '/verify-email', params: { email: getValues('email').trim() } })} />
     </AuthLayout>
   );
