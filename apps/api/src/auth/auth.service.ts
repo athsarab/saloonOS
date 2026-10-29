@@ -66,7 +66,7 @@ export class AuthService {
     const user = await this.database.user.findUnique({ where: { email: dto.email.trim().toLowerCase() }, include: { memberships: { include: { tenant: true }, orderBy: { createdAt: 'asc' } } } });
     if (!user?.passwordHash || !(await argon2.verify(user.passwordHash, dto.password))) throw new UnauthorizedException(genericAuthError);
     if (!user.emailVerifiedAt || !user.memberships.length) throw new UnauthorizedException(genericAuthError);
-    return this.issueSession(user.id, user.memberships[0].tenantId, user.memberships[0].role, user.memberships.map((membership) => ({ id: membership.tenantId, name: membership.tenant.name, role: membership.role })), context);
+    return this.issueSession(user.id, user.memberships[0].tenantId, user.memberships[0].role, user.memberships.map((membership) => ({ id: membership.tenantId, name: membership.tenant.name, role: membership.role })), context, { displayName: user.displayName, email: user.email });
   }
 
   async refresh(dto: TokenDto, context: RequestContext) {
@@ -129,10 +129,10 @@ export class AuthService {
     return { accessToken: await this.accessToken({ sub: user.sub, sid: user.sid, tenantId: dto.tenantId, role: membership.role }) };
   }
 
-  private async issueSession(userId: string, tenantId: string, role: MembershipRole, tenants: Array<{ id: string; name: string; role: MembershipRole }>, context: RequestContext) {
+  private async issueSession(userId: string, tenantId: string, role: MembershipRole, tenants: Array<{ id: string; name: string; role: MembershipRole }>, context: RequestContext, user?: { displayName: string; email: string }) {
     const refreshToken = this.rawToken();
     const session = await this.database.session.create({ data: { userId, tenantId, tokenFamilyId: randomUUID(), refreshTokenHash: this.hashToken(refreshToken), expiresAt: this.inDays(this.config.getOrThrow<number>('REFRESH_TOKEN_TTL_DAYS')), userAgent: context.userAgent } });
-    return { accessToken: await this.accessToken({ sub: userId, sid: session.id, tenantId, role }), refreshToken, expiresIn: this.config.getOrThrow<string>('ACCESS_TOKEN_TTL'), tenants };
+    return { accessToken: await this.accessToken({ sub: userId, sid: session.id, tenantId, role }), refreshToken, expiresIn: this.config.getOrThrow<string>('ACCESS_TOKEN_TTL'), tenants, user };
   }
 
   private accessToken(payload: AccessTokenPayload) {

@@ -9,13 +9,15 @@ import { AppSectionHeader } from '../../src/components/AppSectionHeader';
 import { AppEmptyState, AppErrorState, AppLoadingState } from '../../src/components/AppStates';
 import { AppStatusBadge } from '../../src/components/AppStatusBadge';
 import { AppointmentRow } from '../../src/components/AppointmentRow';
+import { ProfileAvatar } from '../../src/components/ProfileAvatar';
 import { Screen } from '../../src/components/ui';
 import { useBranches, useCurrentShift, useDailyReport, useSalesHistory } from '../../src/lib/checkout-api';
 import { friendlyError } from '../../src/lib/errors';
 import { defaultTimezone, formatDateTime, greeting, saleStatus } from '../../src/lib/format';
 import { lkr } from '../../src/lib/money';
-import { roleLabel, usePermissions } from '../../src/lib/permissions';
+import { usePermissions } from '../../src/lib/permissions';
 import { useAppointments, useBusinessProfile, useDashboardStats } from '../../src/lib/salon-api';
+import { useAuthStore } from '../../src/lib/auth';
 import { useTheme } from '../../src/theme/ThemeProvider';
 import { iconSize, radius, spacing, type } from '../../src/theme/tokens';
 
@@ -34,6 +36,7 @@ function useNow() {
 export default function HomeScreen() {
   const { colors } = useTheme();
   const { role, can } = usePermissions();
+  const user = useAuthStore((state) => state.user);
   const canSell = can('checkout'), canReport = can('reports.read');
 
   const profile = useBusinessProfile();
@@ -85,12 +88,13 @@ export default function HomeScreen() {
           contentContainerStyle={styles.content}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} colors={[colors.primary]} tintColor={colors.primary} />}
         >
-          <View style={styles.header}>
+          <View style={[styles.header, { borderBottomColor: colors.divider }]}>
             <View style={styles.flex}>
+              <Text style={[type.micro, { color: colors.primary }]}>SALONOS / TODAY</Text>
               <Text accessibilityRole="header" style={[type.title, { color: colors.text }]}>{greeting(timeZone)}</Text>
               <Text numberOfLines={1} style={[type.body, { color: colors.textMuted }]}>{context || (profile.isPending ? 'Loading your business…' : 'Your business')}</Text>
             </View>
-            {role ? <AppStatusBadge label={roleLabel[role]} tone="accent" /> : null}
+            <ProfileAvatar name={user?.displayName ?? profile.data?.name} onPress={() => router.navigate('/(app)/more')} />
           </View>
 
           <TodaySummary
@@ -221,7 +225,7 @@ function QuickAction({ label, icon, onPress }: { label: string; icon: ReactNode;
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   content: { gap: spacing.xxl, padding: spacing.lg, paddingBottom: spacing.xxxl },
-  header: { alignItems: 'flex-start', flexDirection: 'row', gap: spacing.md },
+  header: { alignItems: 'center', borderBottomWidth: StyleSheet.hairlineWidth, flexDirection: 'row', gap: spacing.md, paddingBottom: spacing.lg },
   net: { gap: spacing.xxs },
   metrics: { flexDirection: 'row', gap: spacing.sm },
   metric: { flex: 1, gap: spacing.xxs },
