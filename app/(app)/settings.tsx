@@ -1,4 +1,4 @@
-import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { RefreshControl, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MapPin } from 'lucide-react-native';
@@ -15,9 +15,9 @@ import { Screen } from '../../src/components/ui';
 import { NewCatalogItem, useCreateCatalogItem } from '../../src/lib/checkout-api';
 import { friendlyError } from '../../src/lib/errors';
 import { roleLabel, usePermissions } from '../../src/lib/permissions';
-import { NewBranch, NewSalonService, useBusinessProfile, useCreateBranch, useCreateSalonService } from '../../src/lib/salon-api';
+import { BusinessProfile, NewBranch, NewSalonService, NewStaffMember, useBusinessProfile, useCreateBranch, useCreateSalonService, useCreateStaffMember, useSalonStaff } from '../../src/lib/salon-api';
 import { useTheme } from '../../src/theme/ThemeProvider';
-import { iconSize, spacing, type } from '../../src/theme/tokens';
+import { iconSize, spacing, type as typeStyles } from '../../src/theme/tokens';
 
 export default function BusinessSettingsScreen() {
   const { colors } = useTheme();
@@ -26,8 +26,11 @@ export default function BusinessSettingsScreen() {
   const create = useCreateBranch();
   const createItem = useCreateCatalogItem();
   const createService = useCreateSalonService();
+  const createStaff = useCreateStaffMember();
+  const staff = useSalonStaff();
   const [branchFormOpen, setBranchFormOpen] = useState(false);
   const [catalogFormOpen, setCatalogFormOpen] = useState(false);
+  const [staffFormOpen, setStaffFormOpen] = useState(false);
   const [catalogType, setCatalogType] = useState<'SERVICE' | 'PRODUCT'>('SERVICE');
   const business = profile.data;
 
@@ -45,11 +48,11 @@ export default function BusinessSettingsScreen() {
             <>
               <AppCard>
                 <View style={styles.row}>
-                  <Text style={[type.caption, { color: colors.textMuted }]}>Business name</Text>
+                  <Text style={[typeStyles.caption, { color: colors.textMuted }]}>Business name</Text>
                   {role ? <AppStatusBadge label={`You: ${roleLabel[role]}`} tone="accent" /> : null}
                 </View>
-                <Text style={[type.heading, { color: colors.text }]}>{business.name}</Text>
-                <Text style={[type.caption, { color: colors.textMuted }]}>Workspace ID: {business.slug}</Text>
+                <Text style={[typeStyles.heading, { color: colors.text }]}>{business.name}</Text>
+                <Text style={[typeStyles.caption, { color: colors.textMuted }]}>Workspace ID: {business.slug}</Text>
               </AppCard>
               <View style={styles.group}>
                 <View style={styles.sectionHeader}>
@@ -68,16 +71,29 @@ export default function BusinessSettingsScreen() {
                   )) : <AppEmptyState compact title="No branches yet" description="A branch is needed before you can take payments." />}
                 </AppCard>
               </View>
-              {!can('business.settings.write') ? <Text style={[type.caption, { color: colors.textMuted }]}>Only an owner or manager can add branches.</Text> : null}
+              {!can('business.settings.write') ? <Text style={[typeStyles.caption, { color: colors.textMuted }]}>Only an owner or manager can add branches.</Text> : null}
               {can('inventory.write') || can('services.write') ? (
                 <View style={styles.group}>
                   <AppSectionHeader title="Catalog" />
                   <AppCard>
-                    <Text style={[type.body, { color: colors.textMuted }]}>Add services and products here so they appear in POS.</Text>
+                    <Text style={[typeStyles.body, { color: colors.textMuted }]}>Add services and products here so they appear in POS.</Text>
                     <View style={styles.actions}>
                       {can('services.write') ? <AppButton label="Add service" fullWidth={false} onPress={() => { setCatalogType('SERVICE'); setCatalogFormOpen(true); }} /> : null}
                       {can('inventory.write') ? <AppButton label="Add product" variant="secondary" fullWidth={false} onPress={() => { setCatalogType('PRODUCT'); setCatalogFormOpen(true); }} /> : null}
                     </View>
+                  </AppCard>
+                </View>
+              ) : null}
+              {can('staff.write') ? (
+                <View style={styles.group}>
+                  <View style={styles.sectionHeader}>
+                    <AppSectionHeader title={`Staff (${staff.data?.length ?? 0})`} />
+                    <AppButton label="Add staff" size="sm" fullWidth={false} onPress={() => setStaffFormOpen(true)} />
+                  </View>
+                  <AppCard padded={false}>
+                    {staff.data?.length ? staff.data.map((member, index) => (
+                      <AppListItem key={member.id} divider={index > 0} title={member.user.displayName} subtitle={[member.title, member.user.email].filter(Boolean).join(' · ')} leading={<AppListIcon><MapPin color={colors.primary} size={iconSize.md} /></AppListIcon>} />
+                    )) : <AppEmptyState compact title="No staff profiles yet" description="Add an active staff member for service appointments and POS." />}
                   </AppCard>
                 </View>
               ) : null}
@@ -87,16 +103,66 @@ export default function BusinessSettingsScreen() {
       </SafeAreaView>
       <AddBranchSheet visible={branchFormOpen} onClose={() => setBranchFormOpen(false)} create={create} />
       <CatalogSheet visible={catalogFormOpen} type={catalogType} onClose={() => setCatalogFormOpen(false)} createItem={createItem} createService={createService} />
+      <StaffSheet visible={staffFormOpen} branches={business?.branches ?? []} onClose={() => setStaffFormOpen(false)} create={createStaff} />
     </Screen>
   );
 }
 
+function StaffSheet({ visible, branches, onClose, create }: { visible: boolean; branches: BusinessProfile['branches']; onClose: () => void; create: ReturnType<typeof useCreateStaffMember> }) {
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [title, setTitle] = useState('');
+  const [branchId, setBranchId] = useState('');
+  const [role, setRole] = useState<NewStaffMember['role']>('STYLIST');
+  const [error, setError] = useState('');
+  const { colors } = useTheme();
+  const submit = async () => {
+    if (name.trim().length < 2 || !email.trim() || password.length < 8 || !branchId) {
+      setError('Enter a name, email, password with at least 8 characters, and choose a branch.');
+      return;
+    }
+    setError('');
+    try {
+      await create.mutateAsync({ displayName: name.trim(), email: email.trim().toLowerCase(), password, branchId, role, ...(title.trim() ? { title: title.trim() } : {}) });
+      setName('');
+      setEmail('');
+      setPassword('');
+      setTitle('');
+      setBranchId('');
+      setRole('STYLIST');
+      onClose();
+    } catch (reason) {
+      setError(friendlyError(reason, { fallback: 'The staff member could not be created. Please try again.' }));
+    }
+  };
+  return (
+    <AppBottomSheet visible={visible} title="Add staff member" onClose={onClose} locked={create.isPending}>
+      <AppTextField label="Full name" placeholder="e.g. Amaya Jayasinghe" value={name} onChangeText={setName} autoCapitalize="words" maxLength={120} />
+      <AppTextField label="Email" placeholder="staff@example.com" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" autoCorrect={false} maxLength={320} />
+      <AppTextField label="Temporary password" placeholder="At least 8 characters" value={password} onChangeText={setPassword} secureTextEntry maxLength={128} />
+      <AppTextField label="Job title (optional)" placeholder="e.g. Senior stylist" value={title} onChangeText={setTitle} maxLength={120} />
+      <Text style={[typeStyles.label, { color: colors.text }]}>Branch</Text>
+      <View style={styles.actions}>{branches.map((branch) => <AppButton key={branch.id} label={branch.name} size="sm" fullWidth={false} variant={branchId === branch.id ? 'primary' : 'secondary'} onPress={() => setBranchId(branch.id)} />)}</View>
+      <Text style={[typeStyles.label, { color: colors.text }]}>Role</Text>
+      <View style={styles.actions}>
+        <AppButton label="Stylist" size="sm" fullWidth={false} variant={role === 'STYLIST' ? 'primary' : 'secondary'} onPress={() => setRole('STYLIST')} />
+        <AppButton label="Cashier" size="sm" fullWidth={false} variant={role === 'CASHIER' ? 'primary' : 'secondary'} onPress={() => setRole('CASHIER')} />
+      </View>
+      <AppInlineError message={error} />
+      <AppButton label="Create staff member" loading={create.isPending} onPress={() => void submit()} />
+    </AppBottomSheet>
+  );
+}
+
 function CatalogSheet({ visible, type, onClose, createItem, createService }: { visible: boolean; type: 'SERVICE' | 'PRODUCT'; onClose: () => void; createItem: ReturnType<typeof useCreateCatalogItem>; createService: ReturnType<typeof useCreateSalonService> }) {
+  const { colors } = useTheme();
   const [name, setName] = useState('');
   const [category, setCategory] = useState('');
   const [price, setPrice] = useState('');
   const [duration, setDuration] = useState('30');
   const [stock, setStock] = useState('0');
+  const [trackInventory, setTrackInventory] = useState(false);
   const [error, setError] = useState('');
   const pending = createItem.isPending || createService.isPending;
   const submit = async () => {
@@ -117,11 +183,11 @@ function CatalogSheet({ visible, type, onClose, createItem, createService }: { v
         if (category.trim()) payload.category = category.trim();
         await createService.mutateAsync(payload);
       } else {
-        if (!/^\d{1,7}$/.test(stock.trim())) {
+        if (trackInventory && !/^\d{1,7}$/.test(stock.trim())) {
           setError('Stock must be a whole number from 0 to 9999999.');
           return;
         }
-        const payload: NewCatalogItem = { name: trimmedName, type, priceLkr: price.trim(), stockQuantity: stock.trim(), trackInventory: true };
+        const payload: NewCatalogItem = { name: trimmedName, type, priceLkr: price.trim(), stockQuantity: trackInventory ? stock.trim() : '0', trackInventory };
         if (category.trim()) payload.category = category.trim();
         await createItem.mutateAsync(payload);
       }
@@ -130,6 +196,7 @@ function CatalogSheet({ visible, type, onClose, createItem, createService }: { v
       setPrice('');
       setDuration('30');
       setStock('0');
+      setTrackInventory(false);
       onClose();
     } catch (reason) {
       setError(friendlyError(reason, { fallback: `The ${type === 'SERVICE' ? 'service' : 'product'} could not be created. Please try again.` }));
@@ -140,7 +207,16 @@ function CatalogSheet({ visible, type, onClose, createItem, createService }: { v
       <AppTextField label="Name" placeholder={type === 'SERVICE' ? 'e.g. Haircut' : 'e.g. Shampoo'} value={name} onChangeText={setName} maxLength={160} />
       <AppTextField label="Category (optional)" placeholder="e.g. Hair care" value={category} onChangeText={setCategory} maxLength={80} />
       <AppTextField label="Price (LKR)" placeholder="2500.00" value={price} onChangeText={setPrice} keyboardType="decimal-pad" />
-      {type === 'SERVICE' ? <AppTextField label="Duration (minutes)" placeholder="30" value={duration} onChangeText={setDuration} keyboardType="number-pad" /> : <AppTextField label="Opening stock" placeholder="0" value={stock} onChangeText={setStock} keyboardType="number-pad" />}
+      {type === 'SERVICE' ? <AppTextField label="Duration (minutes)" placeholder="30" value={duration} onChangeText={setDuration} keyboardType="number-pad" /> : <>
+        <View style={styles.switchRow}>
+          <View style={styles.switchCopy}>
+            <Text style={[typeStyles.label, { color: colors.text }]}>Track inventory</Text>
+            <Text style={[typeStyles.caption, { color: colors.textMuted }]}>Turn this on only when stock is set up for every selling branch.</Text>
+          </View>
+          <Switch value={trackInventory} onValueChange={setTrackInventory} trackColor={{ false: colors.borderStrong, true: colors.primarySoft }} thumbColor={trackInventory ? colors.primary : colors.textMuted} />
+        </View>
+        {trackInventory ? <AppTextField label="Opening stock" placeholder="0" value={stock} onChangeText={setStock} keyboardType="number-pad" /> : null}
+      </>}
       <AppInlineError message={error} />
       <AppButton label={`Create ${type === 'SERVICE' ? 'service' : 'product'}`} loading={pending} onPress={() => void submit()} />
     </AppBottomSheet>
@@ -191,4 +267,6 @@ const styles = StyleSheet.create({
   group: { gap: spacing.sm },
   sectionHeader: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.sm },
+  switchRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.md },
+  switchCopy: { flex: 1, gap: spacing.xs },
 });

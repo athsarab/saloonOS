@@ -3,7 +3,7 @@ import { ApiTags } from '@nestjs/swagger';
 import { Permission } from '../auth/auth.constants';
 import { RequirePermissions } from '../auth/auth.decorators';
 import { AuthenticatedRequest } from '../auth/auth.types';
-import { AppointmentDto, AppointmentQueryDto, BranchDto, CustomerDto, CustomerQueryDto, DashboardQueryDto, ScheduleDto, ServiceDto, StaffDto, TimeOffDto, UpdateAppointmentDto, UpdateBusinessDto } from './dto';
+import { AppointmentDto, AppointmentQueryDto, BranchDto, CreateStaffMemberDto, CustomerDto, CustomerQueryDto, DashboardQueryDto, ScheduleDto, ServiceDto, StaffDto, TimeOffDto, UpdateAppointmentDto, UpdateBusinessDto } from './dto';
 import { SalonService } from './salon.service';
 
 @ApiTags('salon')
@@ -22,6 +22,7 @@ export class SalonController {
   @Post('customers') @RequirePermissions(Permission.CUSTOMER_WRITE) createCustomer(@Req() req: AuthenticatedRequest, @Body() dto: CustomerDto) { return this.salon.createCustomer(req.user.tenantId, dto); }
   @Get('customers/:id') @RequirePermissions(Permission.CUSTOMER_READ) customer(@Req() req: AuthenticatedRequest, @Param('id') id: string) { return this.salon.customer(req.user.tenantId, id); }
   @Get('staff') @RequirePermissions(Permission.STAFF_READ) staff(@Req() req: AuthenticatedRequest) { return this.salon.staff(req.user.tenantId); }
+  @Post('staff/members') @RequirePermissions(Permission.STAFF_WRITE) createStaffMember(@Req() req: AuthenticatedRequest, @Body() dto: CreateStaffMemberDto) { return this.salon.createStaffMember(req.user.tenantId, dto); }
   @Post('staff') @RequirePermissions(Permission.STAFF_WRITE) createStaff(@Req() req: AuthenticatedRequest, @Body() dto: StaffDto) { return this.salon.createStaff(req.user.tenantId, dto); }
   @Post('staff/:id/schedule') @RequirePermissions(Permission.STAFF_SCHEDULE_WRITE) schedule(@Req() req: AuthenticatedRequest, @Param('id') id: string, @Body() dto: ScheduleDto) { return this.salon.schedule(req.user.tenantId, id, dto); }
   @Post('staff/:id/time-off') @RequirePermissions(Permission.STAFF_SCHEDULE_WRITE) timeOff(@Req() req: AuthenticatedRequest, @Param('id') id: string, @Body() dto: TimeOffDto) { return this.salon.timeOff(req.user.tenantId, id, dto); }

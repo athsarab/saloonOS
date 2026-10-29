@@ -82,6 +82,7 @@ export type BusinessProfile = {
 };
 export type NewBranch = { name: string; code: string; address?: string; timezone?: string };
 export type NewSalonService = { name: string; category?: string; description?: string; priceLkr: number; durationMinutes: number };
+export type NewStaffMember = { displayName: string; email: string; password: string; branchId: string; title?: string; role: 'STYLIST' | 'CASHIER' };
 export type Customer = { id: string; firstName: string; lastName: string | null; phone: string | null; email: string | null; notes: string | null; createdAt: string };
 export type CustomerDetail = Customer & { appointments: Appointment[] };
 export type NewCustomer = { firstName: string; lastName?: string; phone?: string; email?: string; notes?: string };
@@ -107,6 +108,15 @@ export function useCreateSalonService() {
   return useMutation({
     mutationFn: (service: NewSalonService) => apiRequest<SalonService>('/v1/salon/services', { method: 'POST', body: JSON.stringify(service) }),
     onSuccess: () => { void query.invalidateQueries({ queryKey: ['salon-services'] }); void query.invalidateQueries({ queryKey: ['checkout'] }); },
+    retry: false,
+  });
+}
+
+export function useCreateStaffMember() {
+  const query = useQueryClient();
+  return useMutation({
+    mutationFn: (member: NewStaffMember) => apiRequest<SalonStaff>('/v1/salon/staff/members', { method: 'POST', body: JSON.stringify(member) }),
+    onSuccess: () => { void query.invalidateQueries({ queryKey: ['salon-staff'] }); void query.invalidateQueries({ queryKey: ['checkout'] }); },
     retry: false,
   });
 }

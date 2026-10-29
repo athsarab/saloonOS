@@ -1,8 +1,9 @@
 import { ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { AppointmentStatus, CatalogItemType, Prisma } from '@prisma/client';
+import * as argon2 from 'argon2';
 import { DatabaseService } from '../database/database.service';
 import { AuthenticatedRequest } from '../auth/auth.types';
-import { AppointmentDto, AppointmentQueryDto, BranchDto, CustomerDto, CustomerQueryDto, ScheduleDto, ServiceDto, StaffDto, TimeOffDto, UpdateAppointmentDto, UpdateBusinessDto } from './dto';
+import { AppointmentDto, AppointmentQueryDto, BranchDto, CreateStaffMemberDto, CustomerDto, CustomerQueryDto, ScheduleDto, ServiceDto, StaffDto, TimeOffDto, UpdateAppointmentDto, UpdateBusinessDto } from './dto';
 
 const activeStatuses = { notIn: [AppointmentStatus.CANCELLED, AppointmentStatus.NO_SHOW] };
 
@@ -66,6 +67,20 @@ export class SalonService {
     const membership = await this.db.membership.findUnique({ where: { tenantId_userId: { tenantId, userId: dto.userId } } });
     if (!membership) throw new ForbiddenException('Staff user is not a member of this business');
     return this.db.staffProfile.create({ data: { tenantId, userId: dto.userId, branchId: dto.branchId, title: dto.title } });
+  }
+
+  async createStaffMember(tenantId: string, dto: CreateStaffMemberDto) {
+    const email = dto.email.trim().toLowerCase();
+    const existing = await this.db.user.findUnique({ where: { email } });
+    if (existing) throw new ConflictException('A user with this email already exists');
+    const branch = await this.db.branch.findFirst({ where: { id: dto.branchId, tenantId } });
+    if (!branch) throw new NotFoundException('Branch not found');
+    const passwordHash = await argon2.hash(dto.password, { type: argon2.argon2id });
+    return this.db.$transaction(async (tx) => {
+      const user = await tx.user.create({ data: { email, displayName: dto.displayName.trim(), passwordHash, emailVerifiedAt: new Date() } });
+      await tx.membership.create({ data: { tenantId, userId: user.id, role: dto.role } });
+      return tx.staffProfile.create({ data: { tenantId, userId: user.id, branchId: dto.branchId, title: dto.title?.trim() || null }, include: { user: { select: { id: true, displayName: true, email: true } }, branch: true } });
+    });
   }
 
   async schedule(tenantId: string, staffId: string, dto: ScheduleDto) {
