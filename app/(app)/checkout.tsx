@@ -55,6 +55,7 @@ export default function CheckoutScreen() {
 
   const edit = (action: () => void) => { if (!locked) { action(); setQuote(null); setMessage(''); } };
   const add = (item: CatalogItem) => edit(() => {
+    if (item.trackInventory && Number(item.stockQuantity) <= 0) return;
     setCart(current => {
       const existing = current.find(line => line.item.id === item.id);
       if (existing) return current.map(line => line === existing ? { ...line, quantity: Math.min(999999, line.quantity + 1) } : line);
@@ -136,11 +137,17 @@ export default function CheckoutScreen() {
     <Screen>
       <SafeAreaView edges={['top']} style={styles.flex}>
         <FlatList
-          data={items} numColumns={2} keyExtractor={item => item.id} columnWrapperStyle={styles.columns}
+          data={items} keyExtractor={item => item.id}
           contentContainerStyle={styles.list} keyboardShouldPersistTaps="handled"
           refreshing={catalog.isFetching} onRefresh={() => { void catalog.refetch(); void shift.refetch(); }}
           ListHeaderComponent={<View style={styles.header}>
-            <View style={styles.heading}><View><Text accessibilityRole="header" style={[styles.title, { color: colors.text }]}>POS</Text><Text style={{ color: colors.textMuted }}>Build a sale and confirm the payment.</Text></View><ShoppingBag color={colors.primary} size={24} /></View>
+            <View style={styles.heading}>
+              <View style={styles.flex}><Text accessibilityRole="header" style={[styles.title, { color: colors.text }]}>POS</Text><Text style={{ color: colors.textMuted }}>Build a sale and confirm the payment.</Text></View>
+              <Pressable accessibilityRole="button" accessibilityLabel={`Open cart, ${cart.reduce((sum, line) => sum + line.quantity, 0)} items`} onPress={() => setCartOpen(true)} style={styles.cartAccess}>
+                <ShoppingBag color={colors.primary} size={20} />
+                <Text style={[type.micro, { color: colors.primary }]}>{cart.reduce((sum, line) => sum + line.quantity, 0)}</Text>
+              </Pressable>
+            </View>
             <Button label="Offline cash and Sync Status" variant="secondary" onPress={() => router.push('/(app)/sync')} />
             <View style={styles.wrap}>{(branches.data ?? []).map(item => chip(item.name, branchId === item.id, () => { setBranch(item.id); setQuote(null); }, cart.length > 0 && branchId !== item.id))}</View>
             {branches.isError ? <AppErrorState compact title="Couldn’t load branches" message="Checkout needs a branch. Try again." onRetry={() => void branches.refetch()} retrying={branches.isFetching} /> : !branches.isPending && !branches.data?.length ? <Text style={{ color: colors.danger }}>Create a branch in Business settings before checkout.</Text> : null}
@@ -158,14 +165,23 @@ export default function CheckoutScreen() {
           </View>}
           ListEmptyComponent={catalog.isPending ? <AppLoadingState compact label="Loading catalog…" /> : !catalog.isError ? <EmptyState title="No matching items" description="Try another search or category." /> : undefined}
           renderItem={({ item }) => (
-            <Pressable accessibilityRole="button" accessibilityLabel={'Add ' + item.name + ', ' + lkr(item.priceLkr)} disabled={locked} onPress={() => add(item)}
-              style={[styles.item, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Pressable accessibilityRole="button" accessibilityLabel={'Add ' + item.name + ', ' + lkr(item.priceLkr)} disabled={locked || (item.trackInventory && Number(item.stockQuantity) <= 0)} onPress={() => add(item)}
+              style={[styles.item, { backgroundColor: colors.surface, borderColor: colors.border, opacity: item.trackInventory && Number(item.stockQuantity) <= 0 ? 0.62 : 1 }]}>
               <View style={[styles.itemIcon, { backgroundColor: colors.primarySoft }]}><Text style={[type.bodyStrong, { color: colors.primary }]}>{item.type === 'SERVICE' ? 'S' : 'P'}</Text></View>
-              <Text style={[styles.subtitle, { color: colors.text }]}>{item.name}</Text>
-              <Text style={{ color: colors.textMuted }}>{item.category || (item.type === 'SERVICE' ? 'Service' : 'Product')}</Text>
-              <Text style={[styles.price, { color: colors.primary }]}>{lkr(item.priceLkr)}</Text>
-              {item.trackInventory ? <Text style={{ color: colors.textMuted }}>{item.stockQuantity} in stock</Text> : null}
-              <Plus size={18} color={colors.primary} style={styles.itemPlus} />
+              <View style={styles.itemContent}>
+                <View style={styles.itemTitleRow}>
+                  <Text numberOfLines={1} style={[styles.subtitle, { color: colors.text }]}>{item.name}</Text>
+                  <Text style={[styles.price, { color: colors.text }]}>{lkr(item.priceLkr)}</Text>
+                </View>
+                <View style={styles.itemMeta}>
+                  <AppStatusBadge label={item.type === 'SERVICE' ? 'Service' : 'Product'} tone={item.type === 'SERVICE' ? 'accent' : 'neutral'} />
+                  <Text numberOfLines={1} style={{ color: colors.textMuted }}>{item.category || (item.type === 'SERVICE' ? 'Service' : 'Product')}</Text>
+                  {item.trackInventory ? <Text style={{ color: Number(item.stockQuantity) <= 0 ? colors.danger : colors.textMuted }}>{Number(item.stockQuantity) <= 0 ? 'Unavailable' : `${item.stockQuantity} in stock`}</Text> : null}
+                </View>
+              </View>
+              <View style={[styles.addIcon, { backgroundColor: item.trackInventory && Number(item.stockQuantity) <= 0 ? colors.surfaceMuted : colors.primary }]}>
+                <Plus size={18} color={item.trackInventory && Number(item.stockQuantity) <= 0 ? colors.textSubtle : colors.onPrimary} />
+              </View>
             </Pressable>
           )}
         />
@@ -245,15 +261,16 @@ export default function CheckoutScreen() {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 }, center: { flex: 1, padding: spacing.xxl, justifyContent: 'center', gap: spacing.lg },
-  list: { padding: spacing.lg, paddingBottom: spacing.xxxl }, columns: { gap: spacing.md }, header: { gap: spacing.lg, marginBottom: spacing.xl },
+  list: { padding: spacing.lg, paddingBottom: spacing.xxxl }, header: { gap: spacing.lg, marginBottom: spacing.xl },
   eyebrow: { ...type.micro }, title: { ...type.title },
   heading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
   subtitle: { ...type.heading }, price: { ...type.bodyStrong, marginVertical: spacing.xs },
   wrap: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: spacing.sm },
   chip: { minHeight: 48, justifyContent: 'center', borderRadius: radius.pill, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, borderWidth: 1 },
-  item: { flex: 1, maxWidth: '50%', minHeight: 196, padding: spacing.lg, borderRadius: radius.lg, borderWidth: 1, marginBottom: spacing.md, gap: spacing.xs },
-  itemIcon: { width: 36, height: 36, borderRadius: radius.sm, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.xs },
-  itemPlus: { position: 'absolute', right: spacing.md, top: spacing.lg }, cartBar: { padding: spacing.lg, gap: spacing.sm, borderTopWidth: 1 },
+  item: { alignItems: 'center', flexDirection: 'row', minHeight: 76, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.md, borderWidth: 1, marginBottom: spacing.sm, gap: spacing.md },
+  itemIcon: { width: 36, height: 36, borderRadius: radius.sm, alignItems: 'center', justifyContent: 'center' },
+  itemContent: { flex: 1, gap: spacing.xs }, itemTitleRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm }, itemMeta: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm },
+  addIcon: { alignItems: 'center', borderRadius: radius.sm, height: 36, justifyContent: 'center', width: 36 }, cartAccess: { alignItems: 'center', flexDirection: 'row', gap: spacing.xs, minHeight: 44, minWidth: 44, justifyContent: 'center' }, cartBar: { padding: spacing.lg, gap: spacing.sm, borderTopWidth: 1 },
   gap: { gap: spacing.md }, line: { gap: spacing.sm, paddingBottom: spacing.lg, borderBottomWidth: 1 }, quantity: { minWidth: 48, minHeight: 48, alignItems: 'center', justifyContent: 'center' },
   quantityValue: { minWidth: 20, ...type.bodyStrong }, success: { gap: spacing.lg, padding: spacing.xxl, borderRadius: radius.xl },
   cartSummary: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },

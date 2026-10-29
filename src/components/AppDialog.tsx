@@ -22,7 +22,7 @@ export function AppDialog({ visible, title, message, confirmLabel, cancelLabel =
     <Modal visible={visible} transparent animationType="fade" statusBarTranslucent onRequestClose={cancel}>
       <View style={[styles.backdrop, { backgroundColor: colors.overlay }]}>
         <Pressable style={StyleSheet.absoluteFill} accessibilityLabel={cancelLabel} accessibilityRole="button" onPress={cancel} />
-        <View accessibilityViewIsModal style={[styles.dialog, elevation.overlay, { backgroundColor: colors.surface }]}>
+        <View accessibilityViewIsModal style={[styles.dialog, elevation.overlay, { backgroundColor: colors.dialog }]}>
           <Text accessibilityRole="header" style={[type.heading, { color: colors.text }]}>{title}</Text>
           {message ? <Text style={[type.body, { color: colors.textMuted }]}>{message}</Text> : null}
           <View style={styles.actions}>

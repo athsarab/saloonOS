@@ -3,13 +3,15 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import Constants from 'expo-constants';
-import { Building2, ChartColumn, LogOut, ReceiptText, RefreshCw, Repeat, ShieldCheck, Wallet } from 'lucide-react-native';
+import { Building2, ChartColumn, LogOut, Palette, ReceiptText, RefreshCw, Repeat, ShieldCheck, Wallet } from 'lucide-react-native';
+import { AppBottomSheet } from '../../src/components/AppBottomSheet';
 import { AppCard } from '../../src/components/AppCard';
 import { AppDialog } from '../../src/components/AppDialog';
 import { AppHeader } from '../../src/components/AppHeader';
 import { AppListIcon, AppListItem } from '../../src/components/AppListItem';
 import { AppSectionHeader } from '../../src/components/AppSectionHeader';
 import { AppStatusBadge } from '../../src/components/AppStatusBadge';
+import { AppThemeSelector } from '../../src/components/AppThemeSelector';
 import { Screen } from '../../src/components/ui';
 import { useAuthStore } from '../../src/lib/auth';
 import { roleLabel, usePermissions } from '../../src/lib/permissions';
@@ -28,6 +30,7 @@ export default function MoreScreen() {
   const logout = useAuthStore((state) => state.logout);
   const unsynced = useOffline((state) => state.items.filter((item) => item.state !== 'synchronized').length);
   const [confirmSignOut, setConfirmSignOut] = useState(false);
+  const [appearanceOpen, setAppearanceOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
 
   const business: Entry[] = [
@@ -47,6 +50,7 @@ export default function MoreScreen() {
   ];
 
   const settings: Entry[] = [
+    { key: 'appearance', title: 'Appearance', icon: Palette, subtitle: 'Light, dark, or low-glare night mode', onPress: () => setAppearanceOpen(true) },
     { key: 'business', title: 'Business settings', icon: Building2, subtitle: 'Business details and branches', onPress: () => router.push('/(app)/settings') },
     { key: 'security', title: 'Account & security', icon: ShieldCheck, subtitle: 'Sessions and signed-in devices', onPress: () => router.push('/(app)/account-security') },
     ...(tenants.length > 1 ? [{ key: 'switch', title: 'Switch business', icon: Repeat, subtitle: `${tenants.length} businesses on this account`, onPress: () => router.push('/business-selection') }] : []),
@@ -110,6 +114,10 @@ export default function MoreScreen() {
         onConfirm={() => void signOut()}
         onCancel={() => setConfirmSignOut(false)}
       />
+      <AppBottomSheet visible={appearanceOpen} title="Appearance" onClose={() => setAppearanceOpen(false)}>
+        <Text style={[type.body, { color: colors.textMuted }]}>Choose the look that works best for your shift. Changes apply immediately.</Text>
+        <AppThemeSelector />
+      </AppBottomSheet>
     </Screen>
   );
 }

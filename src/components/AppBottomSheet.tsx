@@ -21,7 +21,7 @@ export function AppBottomSheet({ visible, title, onClose, children, locked = fal
     <Modal visible={visible} transparent animationType="slide" onRequestClose={close}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={[styles.backdrop, { backgroundColor: colors.overlay }]}>
         <Pressable style={StyleSheet.absoluteFill} accessibilityLabel="Close panel" accessibilityRole="button" onPress={close} />
-        <View accessibilityViewIsModal style={[styles.sheet, elevation.overlay, { backgroundColor: colors.surface, marginTop: insets.top + spacing.xxl }]}>
+        <View accessibilityViewIsModal style={[styles.sheet, elevation.overlay, { backgroundColor: colors.surfaceRaised, marginTop: insets.top + spacing.xxl }]}>
           <View style={[styles.handle, { backgroundColor: colors.borderStrong }]} />
           <View style={styles.header}>
             <Text accessibilityRole="header" style={[type.heading, styles.title, { color: colors.text }]}>{title}</Text>

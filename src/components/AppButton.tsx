@@ -22,7 +22,7 @@ export function AppButton({ label, variant = 'primary', size = 'md', loading, di
     primary: { background: colors.primary, text: colors.onPrimary, border: colors.primary },
     secondary: { background: colors.surface, text: colors.text, border: colors.borderStrong },
     ghost: { background: 'transparent', text: colors.primary, border: 'transparent' },
-    danger: { background: colors.danger, text: '#FFFFFF', border: colors.danger },
+    danger: { background: colors.danger, text: colors.onDanger, border: colors.danger },
   }[variant];
 
   return (
