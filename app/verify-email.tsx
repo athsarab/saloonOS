@@ -9,8 +9,9 @@ import { AppTextField } from '../src/components/AppTextField';
 import { AuthLayout } from '../src/components/AuthLayout';
 import { apiRequest } from '../src/lib/api';
 import { emailPattern, friendlyError } from '../src/lib/errors';
+import { feedback } from '../src/lib/feedback';
 import { useTheme } from '../src/theme/ThemeProvider';
-import { iconSize, spacing, type } from '../src/theme/tokens';
+import { iconSize, radius, spacing, type } from '../src/theme/tokens';
 
 type Notice = { tone: 'info' | 'error'; text: string } | null;
 
@@ -45,7 +46,7 @@ export default function VerifyEmailScreen() {
       await apiRequest('/v1/auth/verify-email', { method: 'POST', body: JSON.stringify({ token: token.trim(), ...(email.trim() ? { email: email.trim() } : {}) }) }, false);
       setVerified(true);
     } catch (error) {
-      setNotice({ tone: 'error', text: friendlyError(error, { fallback: 'Verification failed. Please try again.', byStatus: { 401: 'The email or code is incorrect, expired or already used.', 400: 'Check the email and code, then try again.' } }) });
+      setNotice({ tone: 'error', text: friendlyError(error, { fallback: feedback.auth.verificationFailed, byStatus: { 401: feedback.auth.verificationFailed, 400: 'Check the email and code, then try again.' } }) });
     } finally {
       setPending(null);
     }
@@ -61,9 +62,9 @@ export default function VerifyEmailScreen() {
     try {
       await apiRequest('/v1/auth/resend-verification', { method: 'POST', body: JSON.stringify({ email: email.trim() }) }, false);
       setToken('');
-      setNotice({ tone: 'info', text: 'If this email belongs to an unverified account, a new code is on its way. Codes expire in 15 minutes — check your spam folder too.' });
+      setNotice({ tone: 'info', text: feedback.auth.verificationSent });
     } catch (error) {
-      setNotice({ tone: 'error', text: friendlyError(error, { fallback: 'The email could not be sent. Please try again later.', byStatus: { 429: 'Please wait a minute before requesting another code.', 400: 'Enter a valid email address.' } }) });
+      setNotice({ tone: 'error', text: friendlyError(error, { fallback: 'We could not send a new code. Check the email and try again.', byStatus: { 429: 'Please wait a minute before requesting another code.', 400: 'Enter a valid email address.' } }) });
     } finally {
       setPending(null);
     }
@@ -117,6 +118,6 @@ export default function VerifyEmailScreen() {
 }
 
 const styles = StyleSheet.create({
-  info: { alignItems: 'flex-start', borderRadius: 12, flexDirection: 'row', gap: spacing.sm, padding: spacing.md },
+  info: { alignItems: 'flex-start', borderRadius: radius.md, flexDirection: 'row', gap: spacing.sm, padding: spacing.md },
   infoText: { flex: 1 },
 });

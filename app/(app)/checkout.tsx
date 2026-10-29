@@ -1,16 +1,22 @@
 import { useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Minus, Plus, ShoppingBag } from 'lucide-react-native';
+import { Minus, Plus, ShoppingBag, Trash2, UserRound } from 'lucide-react-native';
 import { Button, Card, EmptyState, Field, Screen } from '../../src/components/ui';
 import { PosSheet } from '../../src/components/PosSheet';
+import { AppDialog } from '../../src/components/AppDialog';
+import { AppErrorState, AppLoadingState } from '../../src/components/AppStates';
+import { AppSearchBar } from '../../src/components/AppSearchBar';
+import { AppStatusBadge } from '../../src/components/AppStatusBadge';
 import { ApiError } from '../../src/lib/api';
 import { CatalogItem, CheckoutRequest, Quote, Sale, requestKey, useBranches, useCatalog, useCheckout, useCheckoutAccess, useCloseShift, useCurrentShift, useCustomers, useOpenShift, useQuote, useStaff } from '../../src/lib/checkout-api';
 import { cents, decimal, lkr } from '../../src/lib/money';
 import { shareReceipt } from '../../src/lib/receipt';
+import { feedback, feedbackError } from '../../src/lib/feedback';
 import { useTheme } from '../../src/theme/ThemeProvider';
 import { router } from 'expo-router';
 import { useOffline } from '../../src/offline/runtime';
+import { radius, spacing, type } from '../../src/theme/tokens';
 
 type CartLine = { item: CatalogItem; quantity: number; staffId?: string };
 type Attempt = { payload: CheckoutRequest; idempotencyKey: string };
@@ -31,6 +37,7 @@ export default function CheckoutScreen() {
   const [method, setMethod] = useState<'CASH' | 'BANK_TRANSFER'>('CASH');
   const [quote, setQuote] = useState<Quote | null>(null), [attempt, setAttempt] = useState<Attempt | null>(null);
   const [completed, setCompleted] = useState<Sale | null>(null), [message, setMessage] = useState('');
+  const [removeLine, setRemoveLine] = useState<CartLine | null>(null);
   const [count, setCount] = useState(''), [shiftError, setShiftError] = useState('');
   const pay = useCheckout(), price = useQuote(), openShift = useOpenShift(), closeShift = useCloseShift();
   const inFlight = useRef(false);
@@ -40,6 +47,7 @@ export default function CheckoutScreen() {
   const items = useMemo(() => (catalog.data ?? []).filter(item =>
     (category === 'All' || (category === 'Services' && item.type === 'SERVICE') || (category === 'Products' && item.type === 'PRODUCT') || item.category === category) &&
     (item.name + ' ' + (item.category ?? '')).toLowerCase().includes(search.toLowerCase())), [catalog.data, search, category]);
+  const selectedCustomer = customers.data?.find(customer => customer.id === customerId);
   const estimated = useMemo(() => {
     try { return decimal(cart.reduce((sum, line) => sum + cents(line.item.priceLkr) * BigInt(line.quantity), 0n) - cents(discount || '0')); }
     catch { return null; }
@@ -70,7 +78,7 @@ export default function CheckoutScreen() {
   ].join('\n');
   const review = async () => {
     setMessage('');
-    if (!offline.apiOnline) { setMessage('The API is unreachable. Use Offline cash checkout only after preparing an authorized session in Sync Status.'); return; }
+    if (!offline.apiOnline) { setMessage(feedback.payment.offline); return; }
     try {
       if (!cart.length || !branchId) throw new Error('Choose a branch and at least one item.');
       if (cart.some(line => line.item.type === 'SERVICE' && !line.staffId)) throw new Error('Assign a staff member to every service.');
@@ -78,7 +86,7 @@ export default function CheckoutScreen() {
       const next = await price.mutateAsync(payload());
       if (method === 'CASH' && (!cash || cents(cash) < cents(next.totalLkr))) throw new Error('Enter enough cash received to cover ' + lkr(next.totalLkr) + '.');
       setQuote(next);
-    } catch (error) { setMessage(error instanceof Error ? error.message : 'Could not calculate the payment.'); }
+    } catch (error) { setMessage(feedbackError(error, { fallback: feedback.payment.quoteFailed })); }
   };
   const confirm = async () => {
     if (inFlight.current || (!quote && !attempt)) return;
@@ -92,9 +100,9 @@ export default function CheckoutScreen() {
     } catch (error) {
       if (error instanceof ApiError && error.status && error.status >= 400 && error.status < 500 && error.status !== 408) {
         setAttempt(null); setQuote(null);
-        setMessage(error.message);
+        setMessage(feedbackError(error, { fallback: 'We could not record the payment. Check the details and try again.' }));
       } else {
-        setMessage('Payment confirmation was not received. Keep this cart and tap Retry safely to check the same request. Do not create another sale.');
+        setMessage(feedback.payment.confirmationPending);
       }
     } finally { inFlight.current = false; }
   };
@@ -106,13 +114,13 @@ export default function CheckoutScreen() {
       const amount = decimal(cents(count));
       if (shiftMode === 'open') {
         await openShift.mutateAsync({ branchId: branchId!, openingAmountLkr: amount });
-        setMessage('Cash shift opened.');
+        setMessage(feedback.payment.shiftOpened);
       } else {
         const closed = await closeShift.mutateAsync({ shiftId: shift.data!.id, closingAmountLkr: amount });
-        setMessage('Shift closed. Difference: ' + lkr(closed.differenceLkr ?? '0.00'));
+        setMessage(feedback.payment.shiftClosed(lkr(closed.differenceLkr ?? '0.00')));
       }
       setShiftMode(null); setCount('');
-    } catch (error) { setShiftError(error instanceof Error ? error.message : 'Could not save shift.'); }
+    } catch (error) { setShiftError(feedbackError(error, { fallback: 'We could not save the cash shift. Check the amount and try again.' })); }
   };
   const chip = (label: string, selected: boolean, action: () => void, disabled = false) => (
     <Pressable key={label} accessibilityRole="button" accessibilityState={{ selected, disabled }} disabled={disabled} onPress={action}
@@ -121,7 +129,7 @@ export default function CheckoutScreen() {
     </Pressable>
   );
 
-  if (access.isPending) return <Screen><View style={styles.center}><ActivityIndicator color={colors.primary} /><Text style={{ color: colors.text }}>Loading checkout...</Text></View></Screen>;
+  if (access.isPending) return <Screen><View style={styles.center}><AppLoadingState label="Loading checkout…" /></View></Screen>;
   if (access.isError) return <Screen><View style={styles.center}><EmptyState title="Online checkout unavailable" description="Check your connection and make sure your role permits checkout." /><Button label="Authorized offline cash checkout" onPress={() => router.push('/(app)/offline-checkout')} /><Button label="Sync Status" variant="secondary" onPress={() => router.push('/(app)/sync')} /><Button label="Try online again" onPress={() => void access.refetch()} /></View></Screen>;
 
   return (
@@ -132,12 +140,10 @@ export default function CheckoutScreen() {
           contentContainerStyle={styles.list} keyboardShouldPersistTaps="handled"
           refreshing={catalog.isFetching} onRefresh={() => { void catalog.refetch(); void shift.refetch(); }}
           ListHeaderComponent={<View style={styles.header}>
-            <Text style={[styles.eyebrow, { color: colors.primary }]}>SALONOS / POINT OF SALE</Text>
-            <View style={styles.heading}><Text style={[styles.title, { color: colors.text }]}>A smooth checkout.</Text><ShoppingBag color={colors.primary} size={26} /></View>
-            <Text style={{ color: colors.textMuted }}>Services, finishing touches, and a little care.</Text>
+            <View style={styles.heading}><View><Text accessibilityRole="header" style={[styles.title, { color: colors.text }]}>POS</Text><Text style={{ color: colors.textMuted }}>Build a sale and confirm the payment.</Text></View><ShoppingBag color={colors.primary} size={24} /></View>
             <Button label="Offline cash and Sync Status" variant="secondary" onPress={() => router.push('/(app)/sync')} />
             <View style={styles.wrap}>{(branches.data ?? []).map(item => chip(item.name, branchId === item.id, () => { setBranch(item.id); setQuote(null); }, cart.length > 0 && branchId !== item.id))}</View>
-            {branches.isError ? <Button label="Retry branches" onPress={() => void branches.refetch()} /> : !branches.isPending && !branches.data?.length ? <Text style={{ color: colors.danger }}>Create a branch in business settings before checkout.</Text> : null}
+            {branches.isError ? <AppErrorState compact title="Couldn’t load branches" message="Checkout needs a branch. Try again." onRetry={() => void branches.refetch()} retrying={branches.isFetching} /> : !branches.isPending && !branches.data?.length ? <Text style={{ color: colors.danger }}>Create a branch in Business settings before checkout.</Text> : null}
             <Card>
               {shift.isError ? <Button label="Retry cash shift" variant="secondary" onPress={() => void shift.refetch()} /> : shift.isPending ? <Text style={{ color: colors.textMuted }}>Checking cash shift...</Text> : <>
                 <Text style={[styles.subtitle, { color: colors.text }]}>{shift.data ? 'Cash drawer is open' : 'Start your cash shift'}</Text>
@@ -145,16 +151,16 @@ export default function CheckoutScreen() {
                 <Button label={shift.data ? 'Count and close shift' : 'Open cash shift'} variant="secondary" disabled={!branchId || locked} onPress={() => { setCount(''); setShiftError(''); setShiftMode(shift.data ? 'close' : 'open'); }} />
               </>}
             </Card>
-            <Field label="Find an item" placeholder="Search services, products, or categories" value={search} onChangeText={setSearch} />
+            <AppSearchBar accessibilityLabel="Search services and products" placeholder="Search services or products" value={search} onChangeText={setSearch} />
             <View style={styles.wrap}>{categories.map(value => chip(value, category === value, () => setCategory(value)))}</View>
-            {catalog.isError ? <View style={styles.gap}><Text style={{ color: colors.danger }}>Could not load items. Checkout needs an online connection.</Text><Button label="Retry catalog" onPress={() => void catalog.refetch()} /></View> : null}
+            {catalog.isError ? <AppErrorState compact title="Couldn’t load the catalog" message="Checkout needs an online catalog. Try again." onRetry={() => void catalog.refetch()} retrying={catalog.isFetching} /> : null}
             {!cartOpen && message ? <Text style={{ color: colors.text }}>{message}</Text> : null}
           </View>}
-          ListEmptyComponent={catalog.isPending ? <ActivityIndicator color={colors.primary} /> : !catalog.isError ? <EmptyState title="Nothing here yet" description="Try another search, or add items to the business catalog." /> : undefined}
+          ListEmptyComponent={catalog.isPending ? <AppLoadingState compact label="Loading catalog…" /> : !catalog.isError ? <EmptyState title="No matching items" description="Try another search or category." /> : undefined}
           renderItem={({ item }) => (
             <Pressable accessibilityRole="button" accessibilityLabel={'Add ' + item.name + ', ' + lkr(item.priceLkr)} disabled={locked} onPress={() => add(item)}
               style={[styles.item, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <View style={[styles.itemIcon, { backgroundColor: colors.primarySoft }]}><Text style={{ color: colors.primary, fontWeight: '800' }}>{item.type === 'SERVICE' ? 'S' : 'P'}</Text></View>
+              <View style={[styles.itemIcon, { backgroundColor: colors.primarySoft }]}><Text style={[type.bodyStrong, { color: colors.primary }]}>{item.type === 'SERVICE' ? 'S' : 'P'}</Text></View>
               <Text style={[styles.subtitle, { color: colors.text }]}>{item.name}</Text>
               <Text style={{ color: colors.textMuted }}>{item.category || (item.type === 'SERVICE' ? 'Service' : 'Product')}</Text>
               <Text style={[styles.price, { color: colors.primary }]}>{lkr(item.priceLkr)}</Text>
@@ -164,8 +170,8 @@ export default function CheckoutScreen() {
           )}
         />
         <View style={[styles.cartBar, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <Text style={{ color: colors.text }}>{cart.reduce((sum, line) => sum + line.quantity, 0)} items{estimated ? ' / ' + lkr(estimated) : ''}</Text>
-          <Button label={attempt ? 'Resolve payment' : 'View cart'} disabled={!cart.length} onPress={() => { setCompleted(null); setCartOpen(true); }} />
+          <View style={styles.cartSummary}><Text style={[type.label, { color: colors.textMuted }]}>{cart.reduce((sum, line) => sum + line.quantity, 0)} {cart.length === 1 ? 'item' : 'items'}</Text><Text style={[type.heading, { color: colors.text }]}>{estimated ? lkr(estimated) : '—'}</Text></View>
+          <Button label={attempt ? 'Resolve payment' : 'Review cart'} disabled={!cart.length} onPress={() => { setCompleted(null); setCartOpen(true); }} />
         </View>
       </SafeAreaView>
 
@@ -176,49 +182,55 @@ export default function CheckoutScreen() {
             <Text selectable style={{ color: colors.text }}>{completed.receiptNumber}</Text>
             <Text style={{ color: colors.textMuted }}>{completed.status === 'OPEN' ? 'Pending bank verification. This is not a confirmed payment.' : 'Cash received. Change: ' + lkr(completed.changeLkr ?? '0.00')}</Text>
           </View>
-          <Button label="Share receipt" onPress={() => void shareReceipt(completed.receiptText).then(setMessage).catch(() => setMessage('Sharing failed. The sale is saved; share it from Sales.'))} />
+          <Button label="Share receipt" onPress={() => void shareReceipt(completed.receiptText).then(setMessage).catch(() => setMessage(feedback.payment.shareFailed))} />
           <Button label="Next customer" variant="secondary" onPress={() => { setCompleted(null); setCartOpen(false); setMessage(''); }} />
         </> : <>
           {cart.map(line => <View key={line.item.id} style={[styles.line, { borderColor: colors.border }]}>
-            <Text style={[styles.subtitle, { color: colors.text }]}>{line.item.name}</Text>
-            <View style={styles.heading}><Text style={{ color: colors.textMuted }}>{lkr(line.item.priceLkr)} each</Text><View style={styles.wrap}>
+            <View style={styles.lineHeader}><View style={styles.flex}><Text style={[styles.subtitle, { color: colors.text }]}>{line.item.name}</Text><Text style={{ color: colors.textMuted }}>{lkr(line.item.priceLkr)} each</Text></View><Pressable accessibilityRole="button" accessibilityLabel={`Remove ${line.item.name} from cart`} disabled={locked} onPress={() => setRemoveLine(line)} style={styles.iconButton}><Trash2 color={colors.danger} size={18} /></Pressable></View>
+            <View style={styles.heading}><Text style={[type.caption, { color: colors.textMuted }]}>Quantity</Text><View style={styles.wrap}>
               <Pressable style={styles.quantity} accessibilityRole="button" accessibilityLabel={'Remove one ' + line.item.name} disabled={locked} onPress={() => edit(() => setCart(current => current.map(value => value.item.id === line.item.id ? { ...value, quantity: value.quantity - 1 } : value).filter(value => value.quantity > 0)))}><Minus color={colors.primary} size={20} /></Pressable>
               <Text style={[styles.quantityValue, { color: colors.text }]}>{line.quantity}</Text>
               <Pressable style={styles.quantity} accessibilityRole="button" accessibilityLabel={'Add one ' + line.item.name} disabled={locked} onPress={() => add(line.item)}><Plus color={colors.primary} size={20} /></Pressable>
             </View></View>
-            {line.item.type === 'SERVICE' ? <><Text style={{ color: colors.textMuted }}>Assigned professional</Text><View style={styles.wrap}>{(staff.data ?? []).map(member => chip(member.user.displayName, line.staffId === member.id, () => edit(() => setCart(current => current.map(value => value.item.id === line.item.id ? { ...value, staffId: member.id } : value))), locked))}</View>{!staff.data?.length ? <Text style={{ color: colors.danger }}>Add an active staff profile for this branch before selling a service.</Text> : null}</> : null}
+            {line.item.type === 'SERVICE' ? <><Text style={{ color: colors.textMuted }}>Staff member</Text><View style={styles.wrap}>{(staff.data ?? []).map(member => chip(member.user.displayName, line.staffId === member.id, () => edit(() => setCart(current => current.map(value => value.item.id === line.item.id ? { ...value, staffId: member.id } : value))), locked))}</View>{!staff.data?.length ? <Text style={{ color: colors.danger }}>Add an active staff profile for this branch before selling a service.</Text> : null}</> : null}
           </View>)}
           {staff.isError ? <Button label="Retry staff list" onPress={() => void staff.refetch()} /> : null}
           {!quote && !attempt ? <>
-            <Field label="Customer search" placeholder="Name or phone" value={customerSearch} onChangeText={setCustomerSearch} />
-            <View style={styles.wrap}>{chip('Walk-in customer', !customerId, () => edit(() => setCustomerId(undefined)))}{(customers.data ?? []).slice(0, 8).map(customer => chip(customer.firstName + ' ' + (customer.lastName ?? '') + (customer.phone ? ' / ' + customer.phone : ''), customerId === customer.id, () => edit(() => setCustomerId(customer.id))))}</View>
-            {customers.isError ? <Button label="Retry customers" onPress={() => void customers.refetch()} /> : null}
-            {canDiscount ? <Field label="Discount (LKR)" value={discount} onChangeText={value => edit(() => setDiscount(value))} keyboardType="decimal-pad" /> : <Text style={{ color: colors.textMuted }}>Discounts require a manager or owner.</Text>}
+            <View style={styles.sectionTitle}><View><Text style={[type.heading, { color: colors.text }]}>Customer</Text>{selectedCustomer ? <Text style={[type.caption, { color: colors.textMuted }]}>{selectedCustomer.firstName} {selectedCustomer.lastName ?? ''}</Text> : null}</View>{customerId ? <AppStatusBadge label="Selected" tone="accent" /> : null}</View>
+            <View style={styles.customerSelected}>{chip('Walk-in customer', !customerId, () => edit(() => setCustomerId(undefined)))}</View>
+            <AppSearchBar accessibilityLabel="Search customers by name or phone" placeholder="Search customers by name or phone" value={customerSearch} onChangeText={setCustomerSearch} />
+            <View style={styles.customerResults}>{(customers.data ?? []).slice(0, 6).map(customer => <Pressable key={customer.id} accessibilityRole="button" accessibilityState={{ selected: customerId === customer.id }} onPress={() => edit(() => setCustomerId(customer.id))} style={[styles.customerRow, { borderColor: customerId === customer.id ? colors.primary : colors.border, backgroundColor: customerId === customer.id ? colors.primarySoft : colors.surface }]}><UserRound color={colors.primary} size={18} /><View style={styles.flex}><Text style={[type.bodyStrong, { color: colors.text }]}>{customer.firstName} {customer.lastName ?? ''}</Text><Text style={[type.caption, { color: colors.textMuted }]}>{customer.phone ?? 'No phone number'}</Text></View></Pressable>)}</View>
+            {customers.isError ? <Button label="Retry customer search" onPress={() => void customers.refetch()} /> : null}
+            <View style={styles.sectionTitle}><Text style={[type.heading, { color: colors.text }]}>Discount</Text>{canDiscount ? <Text style={[type.caption, { color: colors.textMuted }]}>Manager permission</Text> : null}</View>
+            {canDiscount ? <Field label="Discount (LKR)" value={discount} onChangeText={value => edit(() => setDiscount(value))} keyboardType="decimal-pad" /> : <Text style={{ color: colors.textMuted }}>Discounts require an owner or manager.</Text>}
+            <Text style={[type.heading, { color: colors.text }]}>Payment method</Text>
             <View style={styles.wrap}>{chip('Cash', method === 'CASH', () => edit(() => setMethod('CASH')))}{chip('Bank transfer', method === 'BANK_TRANSFER', () => edit(() => setMethod('BANK_TRANSFER')))}</View>
-            {method === 'CASH' ? <Field label="Cash received (LKR)" value={cash} onChangeText={value => edit(() => setCash(value))} keyboardType="decimal-pad" placeholder="Enter amount received" /> : <><Field label="Bank transfer reference" value={reference} onChangeText={value => edit(() => setReference(value))} maxLength={120} /><Text style={{ color: colors.accent }}>Recorded as pending. A manager must independently verify the bank credit.</Text></>}
-            <Text style={[styles.price, { color: colors.text }]}>{estimated ? 'Estimate ' + lkr(estimated) : 'Enter a valid discount.'}</Text>
+            {method === 'CASH' ? <Field label="Cash received (LKR)" value={cash} onChangeText={value => edit(() => setCash(value))} keyboardType="decimal-pad" placeholder="Enter amount received" /> : <><Field label="Bank transfer reference" value={reference} onChangeText={value => edit(() => setReference(value))} maxLength={120} /><AppStatusBadge label="Pending manager verification" tone="warning" /></>}
+            <View style={[styles.totalPreview, { backgroundColor: colors.surfaceMuted }]}><Text style={[type.caption, { color: colors.textMuted }]}>Estimated total</Text><Text style={[type.title, { color: colors.text }]}>{estimated ? lkr(estimated) : '—'}</Text><Text style={[type.caption, { color: colors.textMuted }]}>Final subtotal, discount, and total are confirmed by SalonOS when you review payment.</Text></View>
             <Button label="Refresh cart prices" variant="secondary" onPress={() => void catalog.refetch().then(result => {
-              if (!result.data) { setMessage('Could not refresh prices. Try again when connected.'); return; }
+              if (!result.data) { setMessage(feedback.payment.quoteFailed); return; }
               const latest = new Map(result.data.map(item => [item.id, item]));
               edit(() => setCart(current => current.map(line => ({ ...line, item: latest.get(line.item.id) ?? line.item }))));
-              setMessage('Prices refreshed. Review the total before payment.');
+              setMessage(feedback.payment.pricesRefreshed);
             })} />
             <Button label="Review payment" disabled={!cart.length || price.isPending} loading={price.isPending} onPress={() => void review()} />
           </> : <>
             <Card>
-              <Text style={{ color: colors.textMuted }}>Confirmed by SalonOS</Text>
-              <Text style={[styles.title, { color: colors.text }]}>{lkr(quote?.totalLkr ?? attempt!.payload.expectedTotalLkr!)}</Text>
+              <Text style={{ color: colors.textMuted }}>Quote confirmed by SalonOS</Text>
+              <View style={styles.totalRows}><Text style={{ color: colors.textMuted }}>Subtotal</Text><Text style={{ color: colors.text }}>{lkr(quote?.subtotalLkr ?? '0.00')}</Text><Text style={{ color: colors.textMuted }}>Discount</Text><Text style={{ color: colors.text }}>{lkr(quote?.discountLkr ?? '0.00')}</Text><Text style={[type.heading, { color: colors.text }]}>Total</Text><Text style={[styles.title, { color: colors.primary }]}>{lkr(quote?.totalLkr ?? attempt!.payload.expectedTotalLkr!)}</Text></View>
               <Text style={{ color: colors.text }}>{method === 'CASH' ? 'Cash / received ' + lkr(cash) : 'Bank transfer / ' + reference}</Text>
-              {method === 'CASH' && quote ? <Text style={{ color: colors.primary }}>Change {lkr(decimal(cents(cash) - cents(quote.totalLkr)))}</Text> : <Text style={{ color: colors.accent }}>Unverified transfer. No confirmed payment yet.</Text>}
+              {method === 'CASH' && quote ? <Text style={{ color: colors.primary }}>Change {lkr(decimal(cents(cash) - cents(quote.totalLkr)))}</Text> : <AppStatusBadge label="Transfer not verified — payment is not confirmed" tone="warning" />}
               {method === 'CASH' && !shift.data ? <Text style={{ color: colors.danger }}>Open a cash shift before confirming payment. You can print this bill now.</Text> : null}
             </Card>
-            {!attempt ? <Button label="Print / share bill" variant="secondary" onPress={() => void shareReceipt(billText()).then(setMessage).catch(() => setMessage('Could not open the bill for printing.'))} /> : null}
+            {!attempt ? <Button label="Print / share bill" variant="secondary" onPress={() => void shareReceipt(billText()).then(setMessage).catch(() => setMessage(feedback.payment.shareFailed))} /> : null}
             {method === 'CASH' && !shift.data && !attempt ? <Button label="Open cash shift to take payment" onPress={() => { setCount(''); setShiftError(''); setShiftMode('open'); }} /> : <Button label={attempt ? 'Retry safely' : method === 'CASH' ? 'Confirm cash received' : 'Record pending transfer'} onPress={() => void confirm()} loading={pay.isPending} />}
             {!attempt ? <Button label="Edit cart" variant="secondary" onPress={() => setQuote(null)} /> : null}
           </>}
         </>}
         {message ? <Text style={{ color: colors.text }}>{message}</Text> : null}
       </PosSheet>
+
+      <AppDialog visible={!!removeLine} title="Remove this item?" message={removeLine ? `${removeLine.item.name} will be removed from the cart. You can add it again before payment.` : undefined} confirmLabel="Remove item" tone="danger" onCancel={() => setRemoveLine(null)} onConfirm={() => { if (removeLine) edit(() => setCart(current => current.filter(line => line.item.id !== removeLine.item.id))); setRemoveLine(null); }} />
 
       <PosSheet visible={!!shiftMode} title={shiftMode === 'open' ? 'Open cash shift' : 'Close cash shift'} onClose={() => setShiftMode(null)} locked={openShift.isPending || closeShift.isPending}>
         <Text style={{ color: colors.textMuted }}>{shiftMode === 'open' ? 'Count the starting cash in the drawer.' : 'Count all cash in the drawer, including the opening float.'}</Text>
@@ -232,16 +244,25 @@ export default function CheckoutScreen() {
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1 }, center: { flex: 1, padding: 24, justifyContent: 'center', gap: 18 },
-  list: { padding: 20, paddingBottom: 32 }, columns: { gap: 12 }, header: { gap: 18, marginBottom: 20 },
-  eyebrow: { fontWeight: '700', fontSize: 11, letterSpacing: 2 }, title: { fontSize: 26, fontWeight: '800', letterSpacing: -0.8 },
-  heading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
-  subtitle: { fontSize: 16, fontWeight: '700' }, price: { fontSize: 18, fontWeight: '800', marginVertical: 6 },
-  wrap: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
-  chip: { minHeight: 48, justifyContent: 'center', borderRadius: 24, paddingHorizontal: 16, paddingVertical: 10, borderWidth: 1 },
-  item: { flex: 1, maxWidth: '50%', minHeight: 196, padding: 16, borderRadius: 20, borderWidth: 1, marginBottom: 12, gap: 6 },
-  itemIcon: { width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
-  itemPlus: { position: 'absolute', right: 14, top: 20 }, cartBar: { padding: 16, gap: 10, borderTopWidth: 1 },
-  gap: { gap: 12 }, line: { gap: 10, paddingBottom: 18, borderBottomWidth: 1 }, quantity: { minWidth: 48, minHeight: 48, alignItems: 'center', justifyContent: 'center' },
-  quantityValue: { minWidth: 20, textAlign: 'center', fontWeight: '700' }, success: { gap: 16, padding: 24, borderRadius: 20 },
+  flex: { flex: 1 }, center: { flex: 1, padding: spacing.xxl, justifyContent: 'center', gap: spacing.lg },
+  list: { padding: spacing.lg, paddingBottom: spacing.xxxl }, columns: { gap: spacing.md }, header: { gap: spacing.lg, marginBottom: spacing.xl },
+  eyebrow: { ...type.micro }, title: { ...type.title },
+  heading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
+  subtitle: { ...type.heading }, price: { ...type.bodyStrong, marginVertical: spacing.xs },
+  wrap: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: spacing.sm },
+  chip: { minHeight: 48, justifyContent: 'center', borderRadius: radius.pill, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, borderWidth: 1 },
+  item: { flex: 1, maxWidth: '50%', minHeight: 196, padding: spacing.lg, borderRadius: radius.lg, borderWidth: 1, marginBottom: spacing.md, gap: spacing.xs },
+  itemIcon: { width: 36, height: 36, borderRadius: radius.sm, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.xs },
+  itemPlus: { position: 'absolute', right: spacing.md, top: spacing.lg }, cartBar: { padding: spacing.lg, gap: spacing.sm, borderTopWidth: 1 },
+  gap: { gap: spacing.md }, line: { gap: spacing.sm, paddingBottom: spacing.lg, borderBottomWidth: 1 }, quantity: { minWidth: 48, minHeight: 48, alignItems: 'center', justifyContent: 'center' },
+  quantityValue: { minWidth: 20, ...type.bodyStrong }, success: { gap: spacing.lg, padding: spacing.xxl, borderRadius: radius.xl },
+  cartSummary: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
+  lineHeader: { alignItems: 'flex-start', flexDirection: 'row', gap: spacing.md },
+  iconButton: { alignItems: 'center', height: 44, justifyContent: 'center', width: 44 },
+  sectionTitle: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
+  customerSelected: { alignItems: 'flex-start' },
+  customerResults: { gap: spacing.sm },
+  customerRow: { alignItems: 'center', borderRadius: radius.md, borderWidth: 1, flexDirection: 'row', gap: spacing.md, minHeight: 56, padding: spacing.md },
+  totalPreview: { borderRadius: radius.md, gap: spacing.xs, padding: spacing.lg },
+  totalRows: { alignItems: 'center', columnGap: spacing.md, flexDirection: 'row', flexWrap: 'wrap', rowGap: spacing.xs },
 });

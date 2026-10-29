@@ -11,6 +11,8 @@ import type { OfflineOperation } from '../../src/offline/types';
 import type { CheckoutRequest } from '../../src/lib/checkout-api';
 import { cents, decimal, lkr } from '../../src/lib/money';
 import { shareReceipt } from '../../src/lib/receipt';
+import { feedback, feedbackError } from '../../src/lib/feedback';
+import { radius, spacing, type } from '../../src/theme/tokens';
 
 export default function OfflineCashScreen() {
   const state = useOffline(), snapshot = state.snapshot;
@@ -28,7 +30,7 @@ export default function OfflineCashScreen() {
     try {
       const operation = await recordOfflineCash(payload());
       setSaved(operation); setCart([]); setCash(''); setReview(false);
-    } catch (error) { setMessage(error instanceof Error ? error.message : 'Cash was not saved. Do not show a receipt or collect payment again until storage is confirmed.'); }
+    } catch (error) { setMessage(feedbackError(error, { fallback: feedback.offline.notSaved })); }
     finally { inFlight.current = false; setBusy(false); }
   };
   const chip = (label: string, action: () => void) => <Pressable key={label} style={[styles.chip, { backgroundColor: colors.primarySoft }]} onPress={action} accessibilityRole="button"><Text style={{ color: colors.text }}>{label}</Text></Pressable>;
@@ -40,7 +42,7 @@ export default function OfflineCashScreen() {
         <Text style={{ color: colors.text }}>{snapshot.branch.name} / walk-in / cash only</Text>
         <Text style={{ color: colors.textMuted }}>Catalog valid until {new Date(snapshot.catalogExpiresAt).toLocaleTimeString()}. No refunds, transfers or discounts offline.</Text>
         <Button label="Sync Status and queue" variant="secondary" onPress={() => router.push('/(app)/sync')} />
-        {saved ? <Card><Text style={{ color: colors.primary, fontWeight: '800' }}>Cash recorded durably on this device</Text><Text selectable style={{ color: colors.text }}>LOCAL-{saved.operationId}</Text><Text style={{ color: colors.text }}>Do not collect the cash again. Final invoice pending server acceptance.</Text><Button label="Share provisional receipt" onPress={() => void shareReceipt(saved.provisionalReceipt).catch(() => setMessage('Sharing failed. The sale remains safely queued.'))} /><Button label="Next customer" variant="secondary" onPress={() => setSaved(null)} /></Card> : null}
+        {saved ? <Card><Text style={[type.bodyStrong, { color: colors.primary }]}>{feedback.offline.saved}</Text><Text selectable style={{ color: colors.text }}>LOCAL-{saved.operationId}</Text><Text style={{ color: colors.text }}>Do not collect the cash again. The final invoice is pending server confirmation.</Text><Button label="Share provisional receipt" onPress={() => void shareReceipt(saved.provisionalReceipt).catch(() => setMessage(feedback.offline.shareFailed))} /><Button label="Next customer" variant="secondary" onPress={() => setSaved(null)} /></Card> : null}
         <Field label="Search cached items or categories" value={search} onChangeText={setSearch} />
       </View>}
       renderItem={({ item }) => <Pressable accessibilityRole="button" disabled={busy || !!saved} style={[styles.item, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={() => setCart(current => current.some(line => line.itemId === item.id) ? current.map(line => line.itemId === item.id ? { ...line, quantity: Math.min(999999, line.quantity + 1) } : line) : [...current, { itemId: item.id, quantity: 1, staffId: item.type === 'SERVICE' && snapshot.staff.length === 1 ? snapshot.staff[0].id : undefined }])}>
@@ -54,7 +56,7 @@ export default function OfflineCashScreen() {
         </Card>)}
         <Text style={[styles.heading, { color: colors.text }]}>Cached total {lkr(decimal(total))}</Text>
         <Field label="Cash received (LKR)" value={cash} onChangeText={setCash} keyboardType="decimal-pad" />
-        <Button label="Review local cash receipt" disabled={!cart.length || busy || !!saved} onPress={() => void (async () => { setBusy(true); try { await previewOfflineCash(payload()); setMessage(''); setReview(true); } catch (error) { setMessage(error instanceof Error ? error.message : 'Cash cannot be authorized locally.'); } finally { setBusy(false); } })()} />
+        <Button label="Review local cash receipt" disabled={!cart.length || busy || !!saved} onPress={() => void (async () => { setBusy(true); try { await previewOfflineCash(payload()); setMessage(''); setReview(true); } catch (error) { setMessage(feedbackError(error, { fallback: 'Cash cannot be authorized locally. Check the cart and try again.' })); } finally { setBusy(false); } })()} />
         {message ? <Text style={{ color: colors.danger }}>{message}</Text> : null}
       </View>}
     />
@@ -66,4 +68,13 @@ export default function OfflineCashScreen() {
     </PosSheet>
   </SafeAreaView></Screen>;
 }
-const styles = StyleSheet.create({ flex: { flex: 1 }, content: { padding: 20, gap: 16 }, gap: { gap: 16 }, title: { fontSize: 26, fontWeight: '800' }, heading: { fontSize: 18, fontWeight: '700' }, item: { padding: 18, minHeight: 100, borderWidth: 1, borderRadius: 18, gap: 8 }, wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 }, chip: { padding: 14, minHeight: 48, borderRadius: 14 } });
+const styles = StyleSheet.create({
+  flex: { flex: 1 },
+  content: { padding: spacing.lg, gap: spacing.lg, paddingBottom: spacing.xxxl },
+  gap: { gap: spacing.lg },
+  title: { ...type.title },
+  heading: { ...type.heading },
+  item: { padding: spacing.lg, minHeight: 100, borderWidth: 1, borderRadius: radius.lg, gap: spacing.sm },
+  wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  chip: { padding: spacing.md, minHeight: 48, borderRadius: radius.md },
+});
