@@ -10,6 +10,7 @@ import { TextLink } from '../src/components/TextLink';
 import { apiRequest } from '../src/lib/api';
 import { useAuthStore } from '../src/lib/auth';
 import { emailPattern, friendlyError } from '../src/lib/errors';
+import { feedback } from '../src/lib/feedback';
 import { useTheme } from '../src/theme/ThemeProvider';
 import { type } from '../src/theme/tokens';
 
@@ -32,9 +33,9 @@ export default function LoginScreen() {
     } catch (error) {
       setError('root', {
         message: credentialsAccepted
-          ? 'You were signed in, but this device couldn’t save the session securely. Close and reopen the app, then try again.'
+          ? feedback.auth.sessionSaveFailed
           // The API returns the same 401 for a wrong password and an unverified email, by design.
-          : friendlyError(error, { fallback: 'Sign-in failed. Please try again.', byStatus: { 401: 'Email or password is incorrect. If you registered recently, verify your email first.' } }),
+          : friendlyError(error, { fallback: feedback.auth.signInFailed, byStatus: { 401: feedback.auth.signInFailed } }),
       });
     }
   };
