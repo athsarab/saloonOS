@@ -2,7 +2,7 @@ import { ReactNode } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { AlertCircle } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeProvider';
-import { iconSize, spacing, type } from '../theme/tokens';
+import { iconSize, radius, spacing, type } from '../theme/tokens';
 import { AppButton } from './AppButton';
 
 export function AppLoadingState({ label = 'Loading…', compact }: { label?: string; compact?: boolean }) {
@@ -61,6 +61,6 @@ const styles = StyleSheet.create({
   center: { textAlign: 'center' },
   copy: { maxWidth: 320 },
   action: { marginTop: spacing.sm },
-  inline: { alignItems: 'flex-start', borderRadius: 12, flexDirection: 'row', gap: spacing.sm, padding: spacing.md },
+  inline: { alignItems: 'flex-start', borderRadius: radius.md, flexDirection: 'row', gap: spacing.sm, padding: spacing.md },
   inlineText: { flex: 1 },
 });

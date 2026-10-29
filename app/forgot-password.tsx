@@ -9,6 +9,7 @@ import { AppTextField } from '../src/components/AppTextField';
 import { AuthLayout } from '../src/components/AuthLayout';
 import { apiRequest } from '../src/lib/api';
 import { emailPattern, friendlyError } from '../src/lib/errors';
+import { feedback } from '../src/lib/feedback';
 import { useTheme } from '../src/theme/ThemeProvider';
 import { iconSize, type } from '../src/theme/tokens';
 
@@ -21,7 +22,7 @@ export default function ForgotPasswordScreen() {
     try {
       await apiRequest('/v1/auth/forgot-password', { method: 'POST', body: JSON.stringify({ email: values.email.trim() }) });
     } catch (error) {
-      setError('root', { message: friendlyError(error, { fallback: 'We couldn’t send the reset email. Please try again.' }) });
+      setError('root', { message: friendlyError(error, { fallback: feedback.auth.resetEmailFailed }) });
       throw error; // keeps isSubmitSuccessful false
     }
   };

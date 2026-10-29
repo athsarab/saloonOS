@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, TextInput, TextInputProps, View } from 'react-native';
 import { Search, X } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeProvider';
-import { iconSize, radius, spacing, type } from '../theme/tokens';
+import { control, iconSize, radius, spacing, touch, type } from '../theme/tokens';
 
 type AppSearchBarProps = Omit<TextInputProps, 'onChangeText' | 'value'> & {
   value: string;
@@ -35,7 +35,7 @@ export function AppSearchBar({ value, onChangeText, placeholder = 'Search', acce
 }
 
 const styles = StyleSheet.create({
-  bar: { alignItems: 'center', borderRadius: radius.md, flexDirection: 'row', gap: spacing.sm, minHeight: 46, paddingLeft: spacing.md },
-  input: { flex: 1, minHeight: 46, paddingVertical: spacing.sm },
-  clear: { alignItems: 'center', height: 44, justifyContent: 'center', width: 44 },
+  bar: { alignItems: 'center', borderRadius: radius.md, flexDirection: 'row', gap: spacing.sm, minHeight: control.input, paddingLeft: spacing.md },
+  input: { flex: 1, minHeight: control.input, paddingVertical: spacing.sm },
+  clear: { alignItems: 'center', height: touch.min, justifyContent: 'center', width: touch.min },
 });

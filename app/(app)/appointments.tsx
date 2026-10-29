@@ -14,6 +14,7 @@ import { AppTextField } from '../../src/components/AppTextField';
 import { Screen } from '../../src/components/ui';
 import { useBranches } from '../../src/lib/checkout-api';
 import { friendlyError } from '../../src/lib/errors';
+import { feedback } from '../../src/lib/feedback';
 import { appointmentStatus, formatDateTime, fullName } from '../../src/lib/format';
 import { usePermissions } from '../../src/lib/permissions';
 import { Appointment, AppointmentInput, useAppointment, useAppointments, useCreateAppointment, useCustomerList, useSalonServices, useSalonStaff, useUpdateAppointment } from '../../src/lib/salon-api';
@@ -80,7 +81,7 @@ export default function AppointmentsScreen() {
           }
           ListEmptyComponent={
             appointments.isPending ? <AppLoadingState label="Loading appointments…" /> :
-              appointments.isError ? <AppErrorState title="Couldn’t load appointments" message={friendlyError(appointments.error, { fallback: 'Please try again.' })} onRetry={() => void appointments.refetch()} retrying={appointments.isFetching} /> :
+              appointments.isError ? <AppErrorState title="Couldn’t load appointments" message={friendlyError(appointments.error, { fallback: feedback.appointment.loadFailed })} onRetry={() => void appointments.refetch()} retrying={appointments.isFetching} /> :
                 <AppEmptyState icon={<CalendarDays color={colors.textSubtle} size={iconSize.lg} />} title={search || status || staffId ? 'No matching appointments' : 'No appointments scheduled for this day.'} description={search || status || staffId ? 'Try another search or filter.' : 'Create an appointment to keep the day organized.'} action={can('appointments.write') ? <AppButton label="Create appointment" fullWidth={false} onPress={() => { setEditing(null); setFormOpen(true); }} /> : undefined} />
           }
           renderItem={({ item, index }) => (
@@ -136,7 +137,7 @@ function AppointmentForm({ visible, appointment, onClose }: { visible: boolean; 
       const payload: AppointmentInput = { branchId, customerId, serviceId, staffProfileId: staffId || undefined, startsAt: localStart(date, time), notes: notes.trim() || undefined };
       if (appointment) await update.mutateAsync({ ...payload, id: appointment.id }); else await create.mutateAsync(payload);
       onClose();
-    } catch (reason) { setError(friendlyError(reason, { fallback: 'The appointment could not be saved. Check the time and staff availability.', byStatus: { 409: 'That time is unavailable. Choose another time or staff member.' } })); }
+    } catch (reason) { setError(friendlyError(reason, { fallback: feedback.appointment.saveFailed, byStatus: { 409: feedback.appointment.conflict } })); }
   };
   const open = visible;
   if (!open) return null;

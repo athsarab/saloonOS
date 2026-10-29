@@ -2,10 +2,11 @@ import { forwardRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, TextInputInstance, TextInputProps, View } from 'react-native';
 import { Eye, EyeOff } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeProvider';
-import { iconSize, radius, spacing, type } from '../theme/tokens';
+import { control, iconSize, radius, spacing, type } from '../theme/tokens';
 
 export type AppTextFieldProps = TextInputProps & {
   label: string;
+  required?: boolean;
   error?: string;
   hint?: string;
   /** Adds a show/hide control to a password field. Implies secureTextEntry. */
@@ -13,7 +14,7 @@ export type AppTextFieldProps = TextInputProps & {
 };
 
 export const AppTextField = forwardRef<TextInputInstance, AppTextFieldProps>(function AppTextField(
-  { label, error, hint, secureToggle, secureTextEntry, editable = true, onFocus, onBlur, style, ...props },
+  { label, required = false, error, hint, secureToggle, secureTextEntry, editable = true, onFocus, onBlur, style, ...props },
   ref,
 ) {
   const { colors } = useTheme();
@@ -24,11 +25,11 @@ export const AppTextField = forwardRef<TextInputInstance, AppTextFieldProps>(fun
 
   return (
     <View style={styles.field}>
-      <Text style={[type.label, { color: colors.text }]}>{label}</Text>
+      <Text style={[type.label, { color: colors.text }]}>{label}{required ? <Text style={{ color: colors.danger }}> *</Text> : null}</Text>
       <View style={[styles.box, { borderColor, backgroundColor: editable ? colors.surface : colors.surfaceMuted }]}>
         <TextInput
           ref={ref}
-          accessibilityLabel={label}
+          accessibilityLabel={required ? `${label}, required` : label}
           accessibilityHint={error ?? hint}
           editable={editable}
           placeholderTextColor={colors.textSubtle}
@@ -60,7 +61,7 @@ export const AppTextField = forwardRef<TextInputInstance, AppTextFieldProps>(fun
 
 const styles = StyleSheet.create({
   field: { gap: spacing.xs + 2 },
-  box: { alignItems: 'center', borderRadius: radius.md, borderWidth: 1, flexDirection: 'row', minHeight: 48 },
-  input: { flex: 1, minHeight: 46, paddingHorizontal: spacing.md + 2, paddingVertical: spacing.sm },
-  toggle: { alignItems: 'center', height: 46, justifyContent: 'center', width: 46 },
+  box: { alignItems: 'center', borderRadius: radius.md, borderWidth: 1, flexDirection: 'row', minHeight: control.input },
+  input: { flex: 1, minHeight: control.input - 2, paddingHorizontal: spacing.md + 2, paddingVertical: spacing.sm },
+  toggle: { alignItems: 'center', height: control.input - 2, justifyContent: 'center', width: control.input - 2 },
 });

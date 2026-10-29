@@ -23,5 +23,5 @@ export function AppSectionHeader({ title, actionLabel, onAction, action }: AppSe
 const styles = StyleSheet.create({
   row: { alignItems: 'center', flexDirection: 'row', gap: spacing.md, justifyContent: 'space-between', minHeight: touch.min - 12 },
   title: { flexShrink: 1 },
-  action: { justifyContent: 'center', minHeight: touch.min - 12 },
+  action: { justifyContent: 'center', minHeight: touch.min },
 });

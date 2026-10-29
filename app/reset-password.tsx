@@ -10,6 +10,7 @@ import { AppTextField } from '../src/components/AppTextField';
 import { AuthLayout } from '../src/components/AuthLayout';
 import { apiRequest } from '../src/lib/api';
 import { friendlyError } from '../src/lib/errors';
+import { feedback } from '../src/lib/feedback';
 import { useTheme } from '../src/theme/ThemeProvider';
 import { iconSize, type } from '../src/theme/tokens';
 
@@ -28,8 +29,8 @@ export default function ResetPasswordScreen() {
     } catch (error) {
       setError('root', {
         message: friendlyError(error, {
-          fallback: 'We couldn’t reset your password. Please try again.',
-          byStatus: { 400: 'This reset code is invalid. Check that you pasted the whole code.', 401: 'This reset link is invalid, expired or already used. Request a new one.' },
+          fallback: feedback.auth.resetFailed,
+          byStatus: { 400: 'This reset code is invalid. Check that you pasted the whole code.', 401: feedback.auth.resetExpired },
         }),
       });
       throw error;

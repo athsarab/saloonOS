@@ -15,7 +15,7 @@ export function AppStatusBadge({ label, tone = 'neutral' }: { label: string; ton
     accent: [colors.primarySoft, colors.primary],
   }[tone];
   return (
-    <View accessibilityLabel={`Status: ${label}`} style={[styles.badge, { backgroundColor: palette[0] }]}>
+    <View accessibilityRole="text" accessibilityLabel={`Status: ${label}`} style={[styles.badge, { backgroundColor: palette[0] }]}>
       <Text numberOfLines={1} style={[type.micro, { color: palette[1] }]}>{label}</Text>
     </View>
   );

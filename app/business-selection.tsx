@@ -36,7 +36,7 @@ export default function BusinessSelectionScreen() {
       useAuthStore.setState({ accessToken: session.accessToken });
       router.replace('/(app)');
     } catch (failure) {
-      setError(friendlyError(failure, { fallback: 'We couldn’t open that business. Please try again.', byStatus: { 401: 'You no longer have access to that business. Choose another or sign in again.' } }));
+      setError(friendlyError(failure, { fallback: 'We could not open that business. Choose another business or try again.', byStatus: { 401: 'You no longer have access to that business. Choose another or sign in again.' } }));
     } finally {
       inFlight.current = false;
       setChoosing(null);

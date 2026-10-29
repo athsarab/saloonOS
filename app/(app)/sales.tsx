@@ -9,8 +9,10 @@ import { ApiError } from '../../src/lib/api';
 import { requestKey, useBranches, useCheckoutAccess, useDailyReport, useRefund, useSaleReceipt, useSalesHistory, useVerifyTransfer } from '../../src/lib/checkout-api';
 import { cents, decimal, lkr } from '../../src/lib/money';
 import { shareReceipt } from '../../src/lib/receipt';
+import { feedback, feedbackError } from '../../src/lib/feedback';
 import { useTheme } from '../../src/theme/ThemeProvider';
 import { useOffline } from '../../src/offline/runtime';
+import { radius, spacing, type } from '../../src/theme/tokens';
 
 type RefundAttempt = { saleId: string; amountLkr: string; reason: string; idempotencyKey: string };
 
@@ -36,7 +38,7 @@ export default function SalesScreen() {
   const busy = refund.isPending || verify.isPending;
 
   const confirmRefund = async () => {
-    if (!apiOnline) { setMessage('Refunds require a live API connection. Do not pay out cash while offline.'); return; }
+    if (!apiOnline) { setMessage(feedback.refund.offline); return; }
     if (!sale || inFlight.current) return;
     inFlight.current = true;
     let payload = attempt;
@@ -47,19 +49,19 @@ export default function SalesScreen() {
       setAttempt(payload);
       sent = true;
       await refund.mutateAsync(payload);
-      setAttempt(null); setMode('receipt'); setMessage('Refund recorded. Stock is unchanged; handle product returns separately.');
+      setAttempt(null); setMode('receipt'); setMessage(feedback.refund.recorded);
     } catch (error) {
       if (!sent || (error instanceof ApiError && error.status && error.status < 500 && error.status !== 408)) {
         setAttempt(null);
-        setMessage(error instanceof Error ? error.message : 'Refund failed.');
+        setMessage(feedbackError(error, { fallback: 'We could not record the refund. Check the amount and reason, then try again.' }));
       } else {
         setAttempt(payload);
-        setMessage('Refund confirmation was not received. Retry safely with the same amount and key.');
+        setMessage(feedback.refund.confirmationPending);
       }
     } finally { inFlight.current = false; }
   };
   const resolveTransfer = async (status: 'VERIFIED' | 'FAILED') => {
-    if (!apiOnline) { setMessage('Bank verification requires a live API connection.'); return; }
+    if (!apiOnline) { setMessage('Bank verification needs a live connection. Try again when you are online.'); return; }
     if (inFlight.current) return;
     inFlight.current = true;
     setMessage('');
@@ -67,7 +69,7 @@ export default function SalesScreen() {
       await verify.mutateAsync({ paymentId, status });
       setMode('receipt');
       setMessage(status === 'VERIFIED' ? 'Bank credit verified and payment confirmed.' : 'Transfer rejected. Reserved stock has been released.');
-    } catch (error) { setMessage(error instanceof Error ? error.message : 'Could not update transfer. Retry the same action.'); }
+    } catch (error) { setMessage(feedbackError(error, { fallback: 'We could not update the transfer. Try the same action again.' })); }
     finally { inFlight.current = false; }
   };
   const close = () => { if (!busy) { setSelectedId(undefined); setMessage(''); setMode('receipt'); } };
@@ -137,7 +139,7 @@ export default function SalesScreen() {
               {payment.reference ? <Text selectable style={{ color: colors.textMuted }}>Reference: {payment.reference}</Text> : null}
               {canRefund && payment.method === 'BANK_TRANSFER' && payment.status === 'PENDING' ? <Button label="Review bank transfer" variant="secondary" onPress={() => { setPaymentId(payment.id); setMode('transfer'); setMessage(''); }} /> : null}
             </Card>)}
-            <Button label="Share receipt" onPress={() => void shareReceipt(sale.receiptText).then(setMessage).catch(() => setMessage('Sharing failed. Your receipt is still saved.'))} />
+            <Button label="Share receipt" onPress={() => void shareReceipt(sale.receiptText).then(setMessage).catch(() => setMessage(feedback.payment.shareFailed))} />
             {canRefund && cents(sale.refundableLkr) > 0n ? <Button label="Partial or full refund" variant="secondary" onPress={() => { setAmount(''); setReason(''); setMode('refund'); setMessage(''); }} /> : null}
             {sale.refunds.map(value => <Text key={value.id} style={{ color: colors.textMuted }}>{lkr(value.amountLkr)} refunded: {value.reason}</Text>)}
           </> : mode === 'refund' ? <>
@@ -162,10 +164,10 @@ export default function SalesScreen() {
   );
 }
 const styles = StyleSheet.create({
-  flex: { flex: 1 }, content: { padding: 20, gap: 12, paddingBottom: 40 }, header: { gap: 18, marginBottom: 8 },
-  eyebrow: { fontSize: 11, fontWeight: '700', letterSpacing: 2 }, title: { fontSize: 28, fontWeight: '800', letterSpacing: -0.7 },
-  subtitle: { fontSize: 16, fontWeight: '700' }, wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: { minHeight: 48, borderRadius: 24, padding: 14, justifyContent: 'center' }, row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 },
-  report: { gap: 12, paddingTop: 16 }, sale: { borderRadius: 20, borderWidth: 1, padding: 18, flexDirection: 'row', alignItems: 'center', gap: 14 },
-  grow: { flex: 1, gap: 6 }, pagination: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, paddingTop: 12 },
+  flex: { flex: 1 }, content: { padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xxxl }, header: { gap: spacing.lg, marginBottom: spacing.sm },
+  eyebrow: { ...type.micro }, title: { ...type.title },
+  subtitle: { ...type.heading }, wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  chip: { minHeight: 48, borderRadius: radius.pill, padding: spacing.md, justifyContent: 'center' }, row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: spacing.md },
+  report: { gap: spacing.md, paddingTop: spacing.lg }, sale: { borderRadius: radius.lg, borderWidth: 1, padding: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  grow: { flex: 1, gap: spacing.xs }, pagination: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm, paddingTop: spacing.md },
 });

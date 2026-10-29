@@ -1,7 +1,7 @@
 import { ReactNode } from 'react';
 import { ActivityIndicator, Pressable, PressableProps, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { useTheme } from '../theme/ThemeProvider';
-import { radius, spacing, type } from '../theme/tokens';
+import { control, radius, spacing, type } from '../theme/tokens';
 
 export type AppButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
 
@@ -53,8 +53,8 @@ export function AppButton({ label, variant = 'primary', size = 'md', loading, di
 
 const styles = StyleSheet.create({
   base: { alignItems: 'center', borderRadius: radius.md, borderWidth: 1, justifyContent: 'center', paddingHorizontal: spacing.lg },
-  md: { minHeight: 48 },
-  sm: { minHeight: 40, paddingHorizontal: spacing.md },
+  md: { minHeight: control.button },
+  sm: { minHeight: control.buttonSm, paddingHorizontal: spacing.md },
   full: { alignSelf: 'stretch' },
   inline: { alignSelf: 'flex-start' },
   content: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm },

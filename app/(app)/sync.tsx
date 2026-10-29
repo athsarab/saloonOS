@@ -9,7 +9,9 @@ import { useBranches, useCheckoutAccess } from '../../src/lib/checkout-api';
 import { apiRequest } from '../../src/lib/api';
 import { shareReceipt } from '../../src/lib/receipt';
 import { lkr } from '../../src/lib/money';
+import { feedback, feedbackError } from '../../src/lib/feedback';
 import { offlineSupported, prepareOffline, probeApi, registerOfflineDevice, retryOffline, useOffline } from '../../src/offline/runtime';
+import { radius, spacing, type } from '../../src/theme/tokens';
 
 function Text({ style, ...props }: TextProps) { const { colors } = useTheme(); return <NativeText {...props} style={[{ color: colors.text }, style]} />; }
 
@@ -23,7 +25,7 @@ export default function SyncScreen() {
   const manager = access.data?.permissions.includes('business.settings.write');
   const run = async (action: () => Promise<unknown>, success: string) => {
     setBusy(true); setMessage('');
-    try { await action(); setMessage(success); } catch (error) { setMessage(error instanceof Error ? error.message : 'Request failed. Existing local records were preserved.'); }
+    try { await action(); setMessage(success); } catch (error) { setMessage(feedbackError(error, { fallback: feedback.offline.syncFailed })); }
     finally { setBusy(false); }
   };
   return <Screen><SafeAreaView edges={['top']}><ScrollView contentContainerStyle={styles.content}>
@@ -63,7 +65,7 @@ export default function SyncScreen() {
         <Text style={styles.heading}>{item.state.toUpperCase()}</Text>
         <Text selectable>LOCAL-{item.id}</Text>
         <Text>{new Date(item.operation.recordedAt).toLocaleString()} / {lkr(item.operation.checkout.expectedTotalLkr!)}</Text>
-        <Text>{item.message || 'Saved on this device, awaiting server confirmation.'}</Text>
+        <Text>        {item.message || feedback.offline.syncPending}</Text>
         {item.result?.receiptNumber ? <Text selectable>Final server receipt: {item.result.receiptNumber}</Text> : <Text>No final invoice number assigned.</Text>}
         {item.state === 'pending' ? <Text>Attempt {item.attempts}. Next automatic attempt: {item.next_retry_at ? new Date(item.next_retry_at).toLocaleTimeString() : 'when the API is reachable'}. Automatic sync runs while the app is open.</Text> : null}
         {['pending', 'blocked'].includes(item.state) ? <Button label="Retry this operation safely" disabled={busy || syncing} onPress={() => void run(() => retryOffline(item.id), 'Retry scheduled without changing the sale.')} /> : null}
@@ -75,4 +77,11 @@ export default function SyncScreen() {
     {error ? <Text>{error}</Text> : null}
   </ScrollView></SafeAreaView></Screen>;
 }
-const styles = StyleSheet.create({ content: { padding: 20, gap: 18 }, title: { fontSize: 28, fontWeight: '800' }, heading: { fontSize: 18, fontWeight: '700', marginBottom: 8 }, wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 }, chip: { padding: 14, minHeight: 48, borderWidth: 1, borderRadius: 12 }, gap: { gap: 8, marginVertical: 8 } });
+const styles = StyleSheet.create({
+  content: { padding: spacing.lg, gap: spacing.lg, paddingBottom: spacing.xxxl },
+  title: { ...type.title },
+  heading: { ...type.heading, marginBottom: spacing.sm },
+  wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  chip: { padding: spacing.md, minHeight: 48, borderWidth: 1, borderRadius: radius.md },
+  gap: { gap: spacing.sm, marginVertical: spacing.sm },
+});
