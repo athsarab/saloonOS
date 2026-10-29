@@ -11,6 +11,7 @@ import { AppHeader } from '../../src/components/AppHeader';
 import { AppListIcon, AppListItem } from '../../src/components/AppListItem';
 import { AppSectionHeader } from '../../src/components/AppSectionHeader';
 import { AppStatusBadge } from '../../src/components/AppStatusBadge';
+import { ProfileAvatar } from '../../src/components/ProfileAvatar';
 import { AppThemeSelector } from '../../src/components/AppThemeSelector';
 import { Screen } from '../../src/components/ui';
 import { useAuthStore } from '../../src/lib/auth';
@@ -32,6 +33,8 @@ export default function MoreScreen() {
   const [confirmSignOut, setConfirmSignOut] = useState(false);
   const [appearanceOpen, setAppearanceOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const [avatarOpen, setAvatarOpen] = useState(false);
+  const user = useAuthStore((state) => state.user);
 
   const business: Entry[] = [
     ...(can('checkout') ? [{
@@ -85,10 +88,17 @@ export default function MoreScreen() {
     <Screen>
       <SafeAreaView edges={['top']} style={styles.flex}>
         <ScrollView contentContainerStyle={styles.content}>
-          <AppHeader title="More" />
+          <AppHeader title="Profile" description="Your account and salon workspace" />
           <AppCard muted>
-            <Text numberOfLines={1} style={[type.heading, { color: colors.text }]}>{profile.data?.name ?? (profile.isPending ? 'Loading business…' : 'Your business')}</Text>
-            {role ? <AppStatusBadge label={roleLabel[role]} tone="accent" /> : null}
+            <View style={styles.profileHeader}>
+              <ProfileAvatar name={user?.displayName ?? profile.data?.name} onPress={() => setAvatarOpen(true)} />
+              <View style={styles.profileCopy}>
+                <Text numberOfLines={1} style={[type.heading, { color: colors.text }]}>{user?.displayName ?? 'SalonOS account'}</Text>
+                {user?.email ? <Text numberOfLines={1} style={[type.caption, { color: colors.textMuted }]}>{user.email}</Text> : null}
+                <Text numberOfLines={1} style={[type.caption, { color: colors.textMuted }]}>{profile.data?.name ?? (profile.isPending ? 'Loading business…' : 'Your business')}</Text>
+              </View>
+              {role ? <AppStatusBadge label={roleLabel[role]} tone="accent" /> : null}
+            </View>
           </AppCard>
           {group('Business', business)}
           {group('Settings', settings)}
@@ -118,6 +128,9 @@ export default function MoreScreen() {
         <Text style={[type.body, { color: colors.textMuted }]}>Choose the look that works best for your shift. Changes apply immediately.</Text>
         <AppThemeSelector />
       </AppBottomSheet>
+      <AppBottomSheet visible={avatarOpen} title="Profile avatar" onClose={() => setAvatarOpen(false)}>
+        <Text style={[type.body, { color: colors.textMuted }]}>Your initials are used as your profile avatar. Photo uploads are not enabled by the current account service yet.</Text>
+      </AppBottomSheet>
     </Screen>
   );
 }
@@ -125,6 +138,8 @@ export default function MoreScreen() {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   content: { gap: spacing.xxl, padding: spacing.lg, paddingBottom: spacing.xxxl },
+  profileHeader: { alignItems: 'center', flexDirection: 'row', gap: spacing.md },
+  profileCopy: { flex: 1, gap: spacing.xs },
   group: { gap: spacing.sm },
   version: { textAlign: 'center' },
 });

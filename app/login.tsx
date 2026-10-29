@@ -15,7 +15,7 @@ import { useTheme } from '../src/theme/ThemeProvider';
 import { type } from '../src/theme/tokens';
 
 type FormValues = { email: string; password: string };
-type LoginResponse = { accessToken: string; refreshToken: string; tenants: { id: string; name: string; role: string }[] };
+type LoginResponse = { accessToken: string; refreshToken: string; tenants: { id: string; name: string; role: string }[]; user?: { displayName: string; email: string } };
 
 export default function LoginScreen() {
   const { colors } = useTheme();
