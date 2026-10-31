@@ -62,7 +62,7 @@ export function AppAvatar({ name }: { name: string }) {
 }
 
 const styles = StyleSheet.create({
-  row: { minHeight: 60 },
+  row: { flexDirection: 'row', minHeight: 60, width: '100%' },
   inner: { alignItems: 'center', flexDirection: 'row', gap: spacing.md, minHeight: 60, minWidth: 0, paddingHorizontal: layout.screenGutter, paddingVertical: spacing.md },
   copy: { flex: 1, gap: spacing.xxs, minWidth: 0 },
   icon: { alignItems: 'center', borderRadius: radius.sm + 2, height: 36, justifyContent: 'center', width: 36 },
