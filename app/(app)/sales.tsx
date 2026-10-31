@@ -12,7 +12,7 @@ import { shareReceipt } from '../../src/lib/receipt';
 import { feedback, feedbackError } from '../../src/lib/feedback';
 import { useTheme } from '../../src/theme/ThemeProvider';
 import { useOffline } from '../../src/offline/runtime';
-import { radius, spacing, type } from '../../src/theme/tokens';
+import { layout, radius, spacing, type } from '../../src/theme/tokens';
 
 type RefundAttempt = { saleId: string; amountLkr: string; reason: string; idempotencyKey: string };
 
@@ -164,7 +164,7 @@ export default function SalesScreen() {
   );
 }
 const styles = StyleSheet.create({
-  flex: { flex: 1 }, content: { padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xxxl }, header: { gap: spacing.lg, marginBottom: spacing.sm },
+  flex: { flex: 1 }, content: { padding: spacing.lg, gap: spacing.md, paddingBottom: layout.screenBottomInset }, header: { gap: spacing.lg, marginBottom: spacing.sm },
   eyebrow: { ...type.micro }, title: { ...type.title },
   subtitle: { ...type.heading }, wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   chip: { minHeight: 48, borderRadius: radius.pill, padding: spacing.md, justifyContent: 'center' }, row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: spacing.md },

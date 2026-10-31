@@ -20,7 +20,7 @@ import { appointmentStatus, formatDateTime, fullName } from '../../src/lib/forma
 import { usePermissions } from '../../src/lib/permissions';
 import { Appointment, AppointmentInput, useAppointment, useAppointments, useCreateAppointment, useCustomerList, useSalonServices, useSalonStaff, useUpdateAppointment } from '../../src/lib/salon-api';
 import { useTheme } from '../../src/theme/ThemeProvider';
-import { iconSize, radius, spacing, type } from '../../src/theme/tokens';
+import { iconSize, layout, radius, spacing, type } from '../../src/theme/tokens';
 
 const dateKey = (date: Date) => {
   const copy = new Date(date);
@@ -172,5 +172,5 @@ function AppointmentForm({ visible, appointment, onClose }: { visible: boolean; 
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1 }, content: { gap: spacing.md, padding: spacing.lg, paddingBottom: spacing.xxxl }, header: { gap: spacing.md }, dateBar: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' }, iconButton: { alignItems: 'center', height: 44, justifyContent: 'center', width: 44 }, wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }, chip: { borderRadius: radius.pill, borderWidth: 1, minHeight: 36, paddingHorizontal: spacing.md, paddingVertical: spacing.sm }, cardGap: { marginTop: spacing.sm }, row: { alignItems: 'center', flexDirection: 'row', gap: spacing.md, minHeight: 72, padding: spacing.lg }, copy: { flex: 1, gap: spacing.xs }, sheetContent: { gap: spacing.md },
+  flex: { flex: 1 }, content: { gap: spacing.md, padding: spacing.lg, paddingBottom: layout.screenBottomInset }, header: { gap: spacing.md }, dateBar: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' }, iconButton: { alignItems: 'center', height: 44, justifyContent: 'center', width: 44 }, wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }, chip: { borderRadius: radius.pill, borderWidth: 1, minHeight: 36, paddingHorizontal: spacing.md, paddingVertical: spacing.sm }, cardGap: { marginTop: spacing.sm }, row: { alignItems: 'center', flexDirection: 'row', gap: spacing.md, minHeight: 72, padding: spacing.lg }, copy: { flex: 1, gap: spacing.xs }, sheetContent: { gap: spacing.md },
 });
