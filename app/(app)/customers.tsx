@@ -19,7 +19,7 @@ import { appointmentStatus, formatDateTime, fullName } from '../../src/lib/forma
 import { usePermissions } from '../../src/lib/permissions';
 import { Appointment, NewCustomer, useCreateCustomer, useCustomer, useCustomerList } from '../../src/lib/salon-api';
 import { useTheme } from '../../src/theme/ThemeProvider';
-import { iconSize, radius, spacing, type } from '../../src/theme/tokens';
+import { iconSize, layout, radius, spacing, type } from '../../src/theme/tokens';
 
 type CustomerForm = { firstName: string; lastName: string; phone: string; email: string };
 const emptyForm: CustomerForm = { firstName: '', lastName: '', phone: '', email: '' };
@@ -168,7 +168,7 @@ function AddCustomerSheet({ visible, onClose }: { visible: boolean; onClose: () 
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  content: { padding: spacing.lg, paddingBottom: spacing.xxxl },
+  content: { padding: spacing.lg, paddingBottom: layout.screenBottomInset },
   header: { gap: spacing.md, marginBottom: spacing.md },
   toolbar: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm },
   add: { minHeight: 46 },

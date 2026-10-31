@@ -59,7 +59,7 @@ export default function RegisterScreen() {
         <AppTextField ref={confirmRef} label="Confirm password" required placeholder="Re-enter your password" secureToggle autoCapitalize="none" autoCorrect={false} autoComplete="new-password" textContentType="newPassword" returnKeyType="go" onSubmitEditing={onSubmit} editable={!isSubmitting} value={field.value} onChangeText={field.onChange} onBlur={field.onBlur} error={errors.confirm?.message} />
       )} />
       <AppInlineError message={errors.root?.message} />
-      <AppButton label="Create account" variant="auth" loading={isSubmitting} onPress={onSubmit} />
+      <AppButton label="Create account" variant="primary" loading={isSubmitting} onPress={onSubmit} />
       <TextLink label="Already registered? Verify your email" align="center" onPress={() => router.push('/verify-email')} />
     </AuthLayout>
   );

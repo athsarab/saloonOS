@@ -49,7 +49,7 @@ export default function ForgotPasswordScreen() {
         <AppTextField label="Email" required placeholder="you@yoursalon.lk" autoCapitalize="none" autoCorrect={false} autoComplete="email" textContentType="emailAddress" keyboardType="email-address" returnKeyType="send" onSubmitEditing={onSubmit} editable={!isSubmitting} value={field.value} onChangeText={field.onChange} onBlur={field.onBlur} error={errors.email?.message} />
       )} />
       <AppInlineError message={errors.root?.message} />
-      <AppButton label="Send reset link" variant="auth" loading={isSubmitting} onPress={onSubmit} />
+      <AppButton label="Send reset link" variant="primary" loading={isSubmitting} onPress={onSubmit} />
     </AuthLayout>
   );
 }

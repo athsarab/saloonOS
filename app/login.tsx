@@ -87,9 +87,9 @@ export default function LoginScreen() {
           error={errors.password?.message}
         />
       )} />
+      <AppButton label="Sign in" variant="primary" loading={isSubmitting} onPress={onSubmit} />
       <TextLink label="Forgot password?" align="right" onPress={() => router.push('/forgot-password')} />
       <AppInlineError message={errors.root?.message} />
-      <AppButton label="Sign in" variant="auth" loading={isSubmitting} onPress={onSubmit} />
       <TextLink label="Verify your email" align="center" onPress={() => router.push({ pathname: '/verify-email', params: { email: getValues('email').trim() } })} />
     </AuthLayout>
   );
