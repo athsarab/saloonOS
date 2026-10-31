@@ -12,14 +12,14 @@ export type ThemeColors = {
 };
 
 const light = {
-  background: '#FFFFFF', backgroundSecondary: '#F6F6F4', surface: '#FFFFFF', surfaceRaised: '#FFFFFF', surfaceMuted: '#F6F6F4',
-  text: '#171717', textMuted: '#737373', textSubtle: '#9A9A96',
-  border: '#E7E7E5', borderStrong: '#D5D5D1', divider: '#E7E7E5',
-  primary: '#6558D3', primarySoft: '#EFEDFB', onPrimary: '#FFFFFF', onDanger: '#FFFFFF',
+  background: '#FBF9FF', backgroundSecondary: '#F5F1FF', surface: '#FFFFFF', surfaceRaised: '#FFFFFF', surfaceMuted: '#F5F1FF',
+  text: '#11102E', textMuted: '#686584', textSubtle: '#9290AB',
+  border: '#E8E4F2', borderStrong: '#D8D1EE', divider: '#E8E4F2',
+  primary: '#5B2BC5', primarySoft: '#EEE8FF', onPrimary: '#FFFFFF', onDanger: '#FFFFFF',
   success: '#12805C', successSoft: '#E8F5EF', warning: '#B54708', warningSoft: '#FEF3E7', onInfo: '#FFFFFF',
   danger: '#C4321F', dangerSoft: '#FDECEA', info: '#1D5FD1', infoSoft: '#EAF1FD',
-  input: '#FFFFFF', inputPlaceholder: '#9A9A96', navigation: '#FFFFFF', navigationActive: '#EFEDFB',
-  dialog: '#FFFFFF', disabled: '#B8B8B3', focus: '#6558D3',
+  input: '#FFFFFF', inputPlaceholder: '#9290AB', navigation: '#FFFFFF', navigationActive: '#EEE8FF',
+  dialog: '#FFFFFF', disabled: '#B8B8B3', focus: '#5B2BC5',
   overlay: 'rgba(16,24,40,0.45)',
 };
 

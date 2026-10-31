@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Minus, Plus, ShoppingBag, Trash2, UserRound } from 'lucide-react-native';
+import { CreditCard, Landmark, Minus, Plus, ReceiptText, ShoppingBag, Trash2, UserRound, WalletCards } from 'lucide-react-native';
 import { Button, Card, EmptyState, Field, Screen } from '../../src/components/ui';
 import { PosSheet } from '../../src/components/PosSheet';
 import { AppDialog } from '../../src/components/AppDialog';
@@ -202,12 +202,11 @@ export default function CheckoutScreen() {
           <Button label="Next customer" variant="secondary" onPress={() => { setCompleted(null); setCartOpen(false); setMessage(''); }} />
         </> : <>
           {cart.map(line => <View key={line.item.id} style={[styles.line, { borderColor: colors.border }]}>
-            <View style={styles.lineHeader}><View style={styles.flex}><Text style={[styles.subtitle, { color: colors.text }]}>{line.item.name}</Text><Text style={{ color: colors.textMuted }}>{lkr(line.item.priceLkr)} each</Text></View><Pressable accessibilityRole="button" accessibilityLabel={`Remove ${line.item.name} from cart`} disabled={locked} onPress={() => setRemoveLine(line)} style={styles.iconButton}><Trash2 color={colors.danger} size={18} /></Pressable></View>
-            <View style={styles.heading}><Text style={[type.caption, { color: colors.textMuted }]}>Quantity</Text><View style={styles.wrap}>
+            <View style={styles.lineHeader}><View style={styles.lineCopy}><Text style={[styles.subtitle, { color: colors.text }]}>{line.item.name}</Text><Text style={{ color: colors.textMuted }}>{lkr(line.item.priceLkr)} each</Text></View><View style={[styles.quantityControls, { backgroundColor: colors.primarySoft }]}>
               <Pressable style={styles.quantity} accessibilityRole="button" accessibilityLabel={'Remove one ' + line.item.name} disabled={locked} onPress={() => edit(() => setCart(current => current.map(value => value.item.id === line.item.id ? { ...value, quantity: value.quantity - 1 } : value).filter(value => value.quantity > 0)))}><Minus color={colors.primary} size={20} /></Pressable>
               <Text style={[styles.quantityValue, { color: colors.text }]}>{line.quantity}</Text>
               <Pressable style={styles.quantity} accessibilityRole="button" accessibilityLabel={'Add one ' + line.item.name} disabled={locked} onPress={() => add(line.item)}><Plus color={colors.primary} size={20} /></Pressable>
-            </View></View>
+            </View><Pressable accessibilityRole="button" accessibilityLabel={`Remove ${line.item.name} from cart`} disabled={locked} onPress={() => setRemoveLine(line)} style={styles.iconButton}><Trash2 color={colors.danger} size={18} /></Pressable></View>
             {line.item.type === 'SERVICE' ? <><Text style={{ color: colors.textMuted }}>Staff member</Text><View style={styles.wrap}>{(staff.data ?? []).map(member => chip(member.user.displayName, line.staffId === member.id, () => edit(() => setCart(current => current.map(value => value.item.id === line.item.id ? { ...value, staffId: member.id } : value))), locked))}</View>{!staff.data?.length ? <Text style={{ color: colors.danger }}>Add an active staff profile for this branch before selling a service.</Text> : null}</> : null}
           </View>)}
           {staff.isError ? <Button label="Retry staff list" onPress={() => void staff.refetch()} /> : null}
@@ -219,10 +218,10 @@ export default function CheckoutScreen() {
             {customers.isError ? <Button label="Retry customer search" onPress={() => void customers.refetch()} /> : null}
             <View style={styles.sectionTitle}><Text style={[type.heading, { color: colors.text }]}>Discount</Text>{canDiscount ? <Text style={[type.caption, { color: colors.textMuted }]}>Manager permission</Text> : null}</View>
             {canDiscount ? <Field label="Discount (LKR)" value={discount} onChangeText={value => edit(() => setDiscount(value))} keyboardType="decimal-pad" /> : <Text style={{ color: colors.textMuted }}>Discounts require an owner or manager.</Text>}
-            <Text style={[type.heading, { color: colors.text }]}>Payment method</Text>
-            <View style={styles.wrap}>{chip('Cash', method === 'CASH', () => edit(() => setMethod('CASH')))}{chip('Bank transfer', method === 'BANK_TRANSFER', () => edit(() => setMethod('BANK_TRANSFER')))}</View>
+            <View style={styles.sectionHeading}><CreditCard color={colors.primary} size={22} /><Text style={[type.heading, { color: colors.text }]}>Payment method</Text></View>
+            <View style={styles.paymentMethods}>{PaymentChip('Cash', WalletCards, method === 'CASH', () => edit(() => setMethod('CASH')))}{PaymentChip('Bank transfer', Landmark, method === 'BANK_TRANSFER', () => edit(() => setMethod('BANK_TRANSFER')))}</View>
             {method === 'CASH' ? <Field label="Cash received (LKR)" value={cash} onChangeText={value => edit(() => setCash(value))} keyboardType="decimal-pad" placeholder="Enter amount received" /> : <><Field label="Bank transfer reference" value={reference} onChangeText={value => edit(() => setReference(value))} maxLength={120} /><AppStatusBadge label="Pending manager verification" tone="warning" /></>}
-            <View style={[styles.totalPreview, { backgroundColor: colors.surfaceMuted }]}><Text style={[type.caption, { color: colors.textMuted }]}>Estimated total</Text><Text style={[type.title, { color: colors.text }]}>{estimated ? lkr(estimated) : '—'}</Text><Text style={[type.caption, { color: colors.textMuted }]}>Final subtotal, discount, and total are confirmed by SalonOS when you review payment.</Text></View>
+            <View style={[styles.totalPreview, { backgroundColor: colors.primarySoft }]}><View style={styles.totalIcon}><ReceiptText color={colors.primary} size={44} /></View><View style={styles.totalCopy}><Text style={[type.heading, { color: colors.textMuted }]}>Estimated total</Text><Text style={[styles.totalValue, { color: colors.text }]}>{estimated ? lkr(estimated) : '—'}</Text><Text style={[type.caption, { color: colors.textMuted }]}>Final subtotal, discount, and total are confirmed by saloonOS when you review payment.</Text></View></View>
             <Button label="Refresh cart prices" variant="secondary" onPress={() => void catalog.refetch().then(result => {
               if (!result.data) { setMessage(feedback.payment.quoteFailed); return; }
               const latest = new Map(result.data.map(item => [item.id, item]));
@@ -259,6 +258,11 @@ export default function CheckoutScreen() {
   );
 }
 
+function PaymentChip(label: string, Icon: typeof WalletCards, selected: boolean, onPress: () => void) {
+  const { colors } = useTheme();
+  return <Pressable accessibilityRole="button" accessibilityState={{ selected }} onPress={onPress} style={[styles.paymentChip, { backgroundColor: selected ? colors.primarySoft : colors.surface, borderColor: selected ? colors.primary : colors.border }]}><View style={[styles.paymentIcon, { backgroundColor: colors.primarySoft }]}><Icon color={colors.primary} size={22} /></View><Text style={[type.bodyStrong, { color: colors.text }]}>{label}</Text><View style={[styles.radio, { borderColor: selected ? colors.primary : colors.borderStrong, backgroundColor: selected ? colors.primary : 'transparent' }]}>{selected ? <View style={styles.radioDot} /> : null}</View></Pressable>;
+}
+
 const styles = StyleSheet.create({
   flex: { flex: 1 }, center: { flex: 1, padding: spacing.xxl, justifyContent: 'center', gap: spacing.lg },
   list: { padding: spacing.lg, paddingBottom: layout.screenBottomInset }, header: { gap: spacing.lg, marginBottom: spacing.xl },
@@ -271,15 +275,15 @@ const styles = StyleSheet.create({
   itemIcon: { width: 36, height: 36, borderRadius: radius.sm, alignItems: 'center', justifyContent: 'center' },
   itemContent: { flex: 1, gap: spacing.xs }, itemTitleRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm }, itemMeta: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm },
   addIcon: { alignItems: 'center', borderRadius: radius.sm, height: 36, justifyContent: 'center', width: 36 }, cartAccess: { alignItems: 'center', flexDirection: 'row', gap: spacing.xs, minHeight: 44, minWidth: 44, justifyContent: 'center' }, cartBar: { padding: spacing.lg, gap: spacing.sm, borderTopWidth: 1 },
-  gap: { gap: spacing.md }, line: { gap: spacing.sm, paddingBottom: spacing.lg, borderBottomWidth: 1 }, quantity: { minWidth: 48, minHeight: 48, alignItems: 'center', justifyContent: 'center' },
+  gap: { gap: spacing.md }, line: { gap: spacing.sm, paddingBottom: spacing.xl, borderBottomWidth: 1 }, quantity: { minWidth: 32, minHeight: 38, alignItems: 'center', justifyContent: 'center' },
   quantityValue: { minWidth: 20, ...type.bodyStrong }, success: { gap: spacing.lg, padding: spacing.xxl, borderRadius: radius.xl },
   cartSummary: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
-  lineHeader: { alignItems: 'flex-start', flexDirection: 'row', gap: spacing.md },
+  lineHeader: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm }, lineCopy: { flex: 1, gap: spacing.xs }, quantityControls: { alignItems: 'center', borderRadius: radius.pill, flexDirection: 'row' },
   iconButton: { alignItems: 'center', height: 44, justifyContent: 'center', width: 44 },
   sectionTitle: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
   customerSelected: { alignItems: 'flex-start' },
   customerResults: { gap: spacing.sm },
   customerRow: { alignItems: 'center', borderRadius: radius.md, borderWidth: 1, flexDirection: 'row', gap: spacing.md, minHeight: 56, padding: spacing.md },
-  totalPreview: { borderRadius: radius.md, gap: spacing.xs, padding: spacing.lg },
+  sectionHeading: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm }, paymentMethods: { flexDirection: 'row', gap: spacing.sm }, paymentChip: { alignItems: 'center', borderRadius: radius.lg, borderWidth: 1, flex: 1, flexDirection: 'row', gap: spacing.sm, minHeight: 76, padding: spacing.sm }, paymentIcon: { alignItems: 'center', borderRadius: radius.pill, height: 42, justifyContent: 'center', width: 42 }, radio: { alignItems: 'center', borderRadius: radius.pill, borderWidth: 2, height: 22, justifyContent: 'center', marginLeft: 'auto', width: 22 }, radioDot: { backgroundColor: '#FFFFFF', borderRadius: radius.pill, height: 8, width: 8 }, totalPreview: { alignItems: 'center', borderRadius: radius.xl, flexDirection: 'row', gap: spacing.lg, padding: spacing.xl }, totalIcon: { alignItems: 'center', justifyContent: 'center' }, totalCopy: { flex: 1, gap: spacing.xs }, totalValue: { fontSize: 30, fontWeight: '700' },
   totalRows: { alignItems: 'center', columnGap: spacing.md, flexDirection: 'row', flexWrap: 'wrap', rowGap: spacing.xs },
 });
