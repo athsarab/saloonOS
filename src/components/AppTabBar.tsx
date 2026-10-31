@@ -37,12 +37,12 @@ export function AppTabBar({ state, emitter, navigateToTab }: TabBarProps) {
     <View>
       <AppOfflineBanner />
       <View accessibilityRole="tablist" style={[styles.bar, { paddingBottom: Math.max(insets.bottom, spacing.sm) }]}>
-        <View style={[styles.pill, { backgroundColor: colors.text, shadowColor: colors.background }]}>
+        <View style={[styles.pill, { backgroundColor: colors.navigation, borderColor: colors.border, shadowColor: colors.text }]}>
         {visible.map((item) => {
           const route = state.routes.find((value) => value.name === item.name);
           if (!route) return null;
           const selected = active === item.name;
-          const color = selected ? colors.text : colors.background;
+          const color = selected ? colors.primary : colors.textMuted;
           const Icon = item.icon;
           const onPress = () => {
             const event = emitter.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
@@ -58,7 +58,7 @@ export function AppTabBar({ state, emitter, navigateToTab }: TabBarProps) {
               onLongPress={() => emitter.emit({ type: 'tabLongPress', target: route.key })}
               style={styles.item}
             >
-              <View style={[styles.indicator, selected && { backgroundColor: colors.surfaceRaised }]}>
+              <View style={[styles.indicator, selected && { backgroundColor: colors.navigationActive }]}>
                 <Icon color={color} size={iconSize.lg - 2} strokeWidth={selected ? 2.25 : 2} />
                 {selected ? <Text numberOfLines={1} style={[type.micro, { color }]}>{item.label}</Text> : null}
               </View>
@@ -73,7 +73,7 @@ export function AppTabBar({ state, emitter, navigateToTab }: TabBarProps) {
 
 const styles = StyleSheet.create({
   bar: { paddingHorizontal: spacing.md, paddingTop: spacing.sm },
-  pill: { alignItems: 'center', borderRadius: radius.pill, elevation: 8, flexDirection: 'row', justifyContent: 'space-around', minHeight: control.tab, paddingHorizontal: spacing.xs, shadowOpacity: 0.16, shadowRadius: 12, shadowOffset: { width: 0, height: 5 } },
+  pill: { alignItems: 'center', borderRadius: radius.pill, borderWidth: 1, elevation: 8, flexDirection: 'row', justifyContent: 'space-around', minHeight: control.tab, paddingHorizontal: spacing.xs, shadowOpacity: 0.14, shadowRadius: 16, shadowOffset: { width: 0, height: 5 } },
   item: { alignItems: 'center', flex: 1, justifyContent: 'center', minHeight: control.tab },
   indicator: { alignItems: 'center', borderRadius: radius.pill, flexDirection: 'row', gap: spacing.sm, justifyContent: 'center', minHeight: 36, minWidth: 42, paddingHorizontal: spacing.sm },
 });
