@@ -1,10 +1,11 @@
 import { AppointmentStatus, CatalogItemType, MembershipRole } from '@prisma/client';
-import { IsDateString, IsEmail, IsEnum, IsInt, IsOptional, IsPositive, IsString, IsUUID, Matches, Max, Min, MinLength } from 'class-validator';
+import { IsBoolean, IsDateString, IsEmail, IsEnum, IsInt, IsOptional, IsPositive, IsString, IsUUID, Matches, Max, Min, MinLength } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class UpdateBusinessDto {
   @IsOptional() @IsString() @MinLength(2) name?: string;
   @IsOptional() @IsString() @MinLength(2) address?: string;
+  @IsOptional() @IsBoolean() whatsappRemindersEnabled?: boolean;
 }
 
 export class BranchDto {

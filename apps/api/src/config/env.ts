@@ -20,6 +20,11 @@ const schema = z.object({
   SMTP_PORT: z.coerce.number().int().min(1).max(65535).default(465),
   SMTP_USER: z.string().optional(),
   SMTP_PASSWORD: z.string().optional(),
+  WHATSAPP_ACCESS_TOKEN: z.string().optional(),
+  WHATSAPP_PHONE_NUMBER_ID: z.string().optional(),
+  WHATSAPP_REMINDER_TEMPLATE: z.string().min(1).default('appointment_reminder'),
+  WHATSAPP_TEMPLATE_LANGUAGE: z.string().min(1).default('en_US'),
+  WHATSAPP_REMINDER_INTERVAL_MS: z.coerce.number().int().positive().default(60_000),
 });
 
 export type AppConfig = z.infer<typeof schema>;
