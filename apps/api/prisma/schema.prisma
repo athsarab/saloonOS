@@ -172,6 +172,7 @@ model Tenant {
   id           String        @id @default(uuid()) @db.Uuid
   name         String        @db.VarChar(160)
   slug         String        @unique @db.VarChar(80)
+  whatsappRemindersEnabled Boolean @default(false)
   createdAt    DateTime      @default(now()) @db.Timestamptz(3)
   updatedAt    DateTime      @updatedAt @db.Timestamptz(3)
   memberships  Membership[]
@@ -305,6 +306,7 @@ model Appointment {
   startsAt       DateTime          @db.Timestamptz(3)
   endsAt         DateTime          @db.Timestamptz(3)
   status         AppointmentStatus @default(BOOKED)
+  whatsappReminderSentAt DateTime? @db.Timestamptz(3)
   notes          String?
   createdAt      DateTime          @default(now()) @db.Timestamptz(3)
   updatedAt      DateTime          @updatedAt @db.Timestamptz(3)
@@ -315,6 +317,7 @@ model Appointment {
   staffProfile   StaffProfile?     @relation(fields: [tenantId, staffProfileId], references: [tenantId, id], onDelete: Restrict)
   @@unique([tenantId, id])
   @@index([tenantId, branchId, startsAt])
+  @@index([tenantId, startsAt, status, whatsappReminderSentAt])
   @@index([tenantId, customerId])
   @@index([tenantId, staffProfileId, startsAt, endsAt])
 }
