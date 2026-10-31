@@ -51,7 +51,6 @@ export default function LoginScreen() {
         <AppTextField
           label="Email"
           required
-          placeholder="you@yoursalon.lk"
           autoCapitalize="none"
           autoCorrect={false}
           autoComplete="email"
@@ -72,7 +71,7 @@ export default function LoginScreen() {
           ref={passwordRef}
           label="Password"
           required
-          placeholder="Your password"
+          
           secureToggle
           autoCapitalize="none"
           autoCorrect={false}

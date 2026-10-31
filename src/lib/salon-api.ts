@@ -78,6 +78,7 @@ export function useUpdateAppointment() {
 
 export type BusinessProfile = {
   id: string; name: string; slug: string;
+  whatsappRemindersEnabled: boolean;
   branches: { id: string; name: string; code: string; address: string | null; timezone: string }[];
 };
 export type NewBranch = { name: string; code: string; address?: string; timezone?: string };
@@ -92,6 +93,15 @@ const useScope = () => useAuthStore((state) => state.accessToken);
 export function useBusinessProfile() {
   const scope = useScope();
   return useQuery({ queryKey: ['salon-profile', scope], queryFn: () => apiRequest<BusinessProfile>('/v1/salon/profile'), enabled: !!scope, staleTime: 5 * 60_000 });
+}
+
+export function useUpdateBusinessProfile() {
+  const query = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: { whatsappRemindersEnabled?: boolean; name?: string; address?: string }) => apiRequest<BusinessProfile>('/v1/salon/profile', { method: 'PATCH', body: JSON.stringify(payload) }),
+    onSuccess: () => { void query.invalidateQueries({ queryKey: ['salon-profile'] }); },
+    retry: false,
+  });
 }
 
 export function useCreateBranch() {

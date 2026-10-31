@@ -1,7 +1,7 @@
 import { RefreshControl, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { MapPin } from 'lucide-react-native';
+import { BellRing, MapPin } from 'lucide-react-native';
 import { AppBottomSheet } from '../../src/components/AppBottomSheet';
 import { AppButton } from '../../src/components/AppButton';
 import { AppCard } from '../../src/components/AppCard';
@@ -15,7 +15,7 @@ import { Screen } from '../../src/components/ui';
 import { NewCatalogItem, useCreateCatalogItem } from '../../src/lib/checkout-api';
 import { friendlyError } from '../../src/lib/errors';
 import { roleLabel, usePermissions } from '../../src/lib/permissions';
-import { BusinessProfile, NewBranch, NewSalonService, NewStaffMember, useBusinessProfile, useCreateBranch, useCreateSalonService, useCreateStaffMember, useSalonStaff } from '../../src/lib/salon-api';
+import { BusinessProfile, NewBranch, NewSalonService, NewStaffMember, useBusinessProfile, useCreateBranch, useCreateSalonService, useCreateStaffMember, useSalonStaff, useUpdateBusinessProfile } from '../../src/lib/salon-api';
 import { useTheme } from '../../src/theme/ThemeProvider';
 import { iconSize, layout, spacing, type as typeStyles } from '../../src/theme/tokens';
 
@@ -27,6 +27,7 @@ export default function BusinessSettingsScreen() {
   const createItem = useCreateCatalogItem();
   const createService = useCreateSalonService();
   const createStaff = useCreateStaffMember();
+  const updateProfile = useUpdateBusinessProfile();
   const staff = useSalonStaff();
   const [branchFormOpen, setBranchFormOpen] = useState(false);
   const [catalogFormOpen, setCatalogFormOpen] = useState(false);
@@ -54,6 +55,25 @@ export default function BusinessSettingsScreen() {
                 <Text style={[typeStyles.heading, { color: colors.text }]}>{business.name}</Text>
                 <Text style={[typeStyles.caption, { color: colors.textMuted }]}>Workspace ID: {business.slug}</Text>
               </AppCard>
+              <View style={styles.group}>
+                <AppSectionHeader title="Customer reminders" />
+                <AppCard padded={false}>
+                  <AppListItem
+                    title="WhatsApp appointment reminder"
+                    subtitle="Send an automatic message 30 minutes before a booked appointment. The customer must have an international phone number."
+                    leading={<AppListIcon><BellRing color={colors.primary} size={iconSize.md} /></AppListIcon>}
+                    trailing={<Switch
+                      value={business.whatsappRemindersEnabled}
+                      disabled={!can('business.settings.write') || updateProfile.isPending}
+                      onValueChange={(value) => updateProfile.mutate({ whatsappRemindersEnabled: value })}
+                      trackColor={{ false: colors.borderStrong, true: colors.primarySoft }}
+                      thumbColor={business.whatsappRemindersEnabled ? colors.primary : colors.textSubtle}
+                      accessibilityLabel="WhatsApp appointment reminders"
+                    />}
+                  />
+                </AppCard>
+                {!can('business.settings.write') ? <Text style={[typeStyles.caption, { color: colors.textMuted }]}>Only an owner or manager can change reminder settings.</Text> : null}
+              </View>
               <View style={styles.group}>
                 <View style={styles.sectionHeader}>
                   <AppSectionHeader title={`Branches (${business.branches.length})`} />

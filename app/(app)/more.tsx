@@ -53,9 +53,9 @@ export default function MoreScreen() {
   ];
 
   const settings: Entry[] = [
-    { key: 'appearance', title: 'Appearance', icon: Palette, subtitle: 'Light, dark, or low-glare night mode', onPress: () => setAppearanceOpen(true) },
-    { key: 'business', title: 'Business settings', icon: Building2, subtitle: 'Business details and branches', onPress: () => router.push('/(app)/settings') },
-    { key: 'security', title: 'Account & security', icon: ShieldCheck, subtitle: 'Sessions and signed-in devices', onPress: () => router.push('/(app)/account-security') },
+    { key: 'appearance', title: 'Appearance', icon: Palette, onPress: () => setAppearanceOpen(true) },
+    { key: 'business', title: 'Business settings', icon: Building2, onPress: () => router.push('/(app)/settings') },
+    { key: 'security', title: 'Account & security', icon: ShieldCheck,  onPress: () => router.push('/(app)/account-security') },
     ...(tenants.length > 1 ? [{ key: 'switch', title: 'Switch business', icon: Repeat, subtitle: `${tenants.length} businesses on this account`, onPress: () => router.push('/business-selection') }] : []),
   ];
 

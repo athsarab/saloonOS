@@ -27,36 +27,45 @@ export function AppButton({ label, variant = 'primary', size = 'md', loading, di
   }[variant];
 
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel ?? label}
-      accessibilityState={{ disabled: !!inactive, busy: !!loading }}
-      disabled={inactive}
-      hitSlop={size === 'sm' ? 4 : undefined}
-      style={({ pressed }) => [
-        styles.base,
+    <View
+      style={[
+        styles.frame,
         size === 'sm' ? styles.sm : styles.md,
-        { backgroundColor: palette.background, borderColor: palette.border, borderWidth: 1, opacity: disabled && !loading ? 0.45 : pressed ? 0.82 : 1 },
         fullWidth ? styles.full : styles.inline,
+        {
+          backgroundColor: palette.background,
+          borderColor: palette.border,
+          opacity: disabled && !loading ? 0.45 : 1,
+        },
         style,
       ]}
-      {...props}
     >
-      {loading ? <ActivityIndicator color={palette.text} /> : (
-        <View style={styles.content}>
-          {icon}
-          <Text numberOfLines={1} style={[size === 'sm' ? type.label : type.bodyStrong, { color: palette.text }]}>{label}</Text>
-        </View>
-      )}
-    </Pressable>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={accessibilityLabel ?? label}
+        accessibilityState={{ disabled: !!inactive, busy: !!loading }}
+        disabled={inactive}
+        hitSlop={size === 'sm' ? 4 : undefined}
+        style={({ pressed }) => [styles.pressable, pressed && { opacity: 0.82 }]}
+        {...props}
+      >
+        {loading ? <ActivityIndicator color={palette.text} /> : (
+          <View style={styles.content}>
+            {icon}
+            <Text numberOfLines={1} style={[size === 'sm' ? type.label : type.bodyStrong, { color: palette.text }]}>{label}</Text>
+          </View>
+        )}
+      </Pressable>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  base: { alignItems: 'center', borderRadius: radius.md, borderWidth: 1, justifyContent: 'center', paddingHorizontal: spacing.lg },
-  md: { minHeight: control.button },
-  sm: { minHeight: control.buttonSm, paddingHorizontal: spacing.md },
+  frame: { alignItems: 'center', borderRadius: radius.md, borderWidth: 1, justifyContent: 'center', minWidth: control.button, overflow: 'hidden' },
+  pressable: { alignItems: 'center', alignSelf: 'stretch', flex: 1, height: '100%', justifyContent: 'center', width: '100%' },
+  md: { height: control.button, minHeight: control.button },
+  sm: { height: control.buttonSm, minHeight: control.buttonSm, paddingHorizontal: spacing.md },
   full: { alignSelf: 'stretch' },
-  inline: { alignSelf: 'flex-start' },
-  content: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm },
+  inline: { alignSelf: 'flex-start', flexShrink: 0 },
+  content: { alignItems: 'center', flexDirection: 'row', flexShrink: 0, gap: spacing.sm },
 });

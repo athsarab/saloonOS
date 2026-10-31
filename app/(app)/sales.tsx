@@ -1,7 +1,8 @@
 import { useRef, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowDownLeft, ChevronRight, ReceiptText } from 'lucide-react-native';
+import { ArrowDownLeft, CalendarDays, ChevronRight, ReceiptText } from 'lucide-react-native';
+import { AppDatePicker, formatPickerDate } from '../../src/components/AppDatePicker';
 import { Button, Card, EmptyState, Field, Screen } from '../../src/components/ui';
 import { PosSheet } from '../../src/components/PosSheet';
 import { AppHeader } from '../../src/components/AppHeader';
@@ -24,7 +25,7 @@ export default function SalesScreen() {
   const branchId = branch || branches.data?.[0]?.id;
   const canReport = access.data?.permissions.includes('reports.read') ?? false;
   const canRefund = access.data?.permissions.includes('refunds') ?? false;
-  const [date, setDate] = useState(''), [reportDate, setReportDate] = useState('');
+  const [date, setDate] = useState(''), [reportDate, setReportDate] = useState(''), [datePickerOpen, setDatePickerOpen] = useState(false);
   const sales = useSalesHistory(branchId, offset), report = useDailyReport(branchId, reportDate, canReport);
   const [selectedId, setSelectedId] = useState<string>();
   const detail = useSaleReceipt(selectedId);
@@ -86,8 +87,13 @@ export default function SalesScreen() {
             {access.isError || branches.isError ? <Button label="Retry access and branches" onPress={() => { void access.refetch(); void branches.refetch(); }} /> : null}
             {canReport ? <Card>
               <View style={styles.row}><Text style={[styles.subtitle, { color: colors.text }]}>Daily report</Text><ArrowDownLeft color={colors.primary} size={22} /></View>
-              <Field label="Report date (YYYY-MM-DD)" placeholder="Leave empty for today" value={date} onChangeText={setDate} autoCapitalize="none" />
+              <Pressable accessibilityRole="button" onPress={() => setDatePickerOpen(true)} style={[styles.reportDateField, { backgroundColor: colors.input, borderColor: colors.borderStrong }]}>
+                <CalendarDays color={colors.primary} size={20} />
+                <View style={styles.reportDateCopy}><Text style={[type.caption, { color: colors.textMuted }]}>Report date</Text><Text style={[type.body, { color: colors.text }]}>{date || 'Today'}</Text></View>
+                <ChevronRight color={colors.textMuted} size={18} />
+              </Pressable>
               <Button label="Show report" variant="secondary" onPress={() => setReportDate(date.trim())} />
+              <AppDatePicker key={datePickerOpen ? formatPickerDate(date) : 'closed'} visible={datePickerOpen} value={formatPickerDate(date)} onClose={() => setDatePickerOpen(false)} onChange={setDate} />
               {report.isPending ? <ActivityIndicator color={colors.primary} /> : report.isError ? <><Text style={{ color: colors.danger }}>Could not load the report. Check the date and connection.</Text><Button label="Retry report" onPress={() => void report.refetch()} /></> : report.data ? <View style={styles.report}>
                 <Text style={{ color: colors.textMuted }}>{report.data.date} / {report.data.timezone}</Text>
                 <Text style={[styles.title, { color: colors.primary }]}>{lkr(report.data.netLkr)}</Text>
@@ -169,5 +175,7 @@ const styles = StyleSheet.create({
   subtitle: { ...type.heading }, wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   chip: { minHeight: 48, borderRadius: radius.pill, padding: spacing.md, justifyContent: 'center' }, row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: spacing.md },
   report: { gap: spacing.md, paddingTop: spacing.lg }, sale: { borderRadius: radius.lg, borderWidth: 1, padding: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  reportDateField: { alignItems: 'center', borderRadius: radius.md, borderWidth: 1, flexDirection: 'row', gap: spacing.sm, minHeight: 54, paddingHorizontal: spacing.md },
+  reportDateCopy: { flex: 1, gap: spacing.xxs },
   grow: { flex: 1, gap: spacing.xs }, pagination: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm, paddingTop: spacing.md },
 });

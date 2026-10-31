@@ -65,7 +65,7 @@ export default function CustomersScreen() {
             <View style={styles.header}>
               <AppHeader title="Customers" />
               <View style={styles.toolbar}>
-                <View style={styles.flex}><AppSearchBar value={search} onChangeText={setSearch} placeholder="Search name or phone" /></View>
+                <View style={styles.searchWrap}><AppSearchBar value={search} onChangeText={setSearch} placeholder="Search name or phone" /></View>
                 {canAdd ? <AppButton label="Add" size="sm" fullWidth={false} accessibilityLabel="Add customer" icon={<UserPlus color={colors.onPrimary} size={iconSize.sm + 2} />} onPress={() => setAdding(true)} style={styles.add} /> : null}
               </View>
               {customers.data && !customers.isError ? (
@@ -170,7 +170,8 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   content: { padding: spacing.lg, paddingBottom: layout.screenBottomInset },
   header: { gap: spacing.md, marginBottom: spacing.md },
-  toolbar: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm },
+  toolbar: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm, minWidth: 0 },
+  searchWrap: { flex: 1, minWidth: 0 },
   add: { minHeight: 46 },
   rowWrap: { borderLeftWidth: 1, borderRightWidth: 1, overflow: 'hidden' },
   first: { borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, borderTopWidth: 1 },
