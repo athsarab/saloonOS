@@ -219,7 +219,7 @@ export default function CheckoutScreen() {
             <View style={styles.sectionTitle}><Text style={[type.heading, { color: colors.text }]}>Discount</Text>{canDiscount ? <Text style={[type.caption, { color: colors.textMuted }]}>Manager permission</Text> : null}</View>
             {canDiscount ? <Field label="Discount (LKR)" value={discount} onChangeText={value => edit(() => setDiscount(value))} keyboardType="decimal-pad" /> : <Text style={{ color: colors.textMuted }}>Discounts require an owner or manager.</Text>}
             <View style={styles.sectionHeading}><CreditCard color={colors.primary} size={22} /><Text style={[type.heading, { color: colors.text }]}>Payment method</Text></View>
-            <View style={styles.paymentMethods}>{PaymentChip('Cash', WalletCards, method === 'CASH', () => edit(() => setMethod('CASH')))}{PaymentChip('Bank transfer', Landmark, method === 'BANK_TRANSFER', () => edit(() => setMethod('BANK_TRANSFER')))}</View>
+            <View style={styles.paymentMethods}><PaymentChip colors={colors} label="Cash" Icon={WalletCards} selected={method === 'CASH'} onPress={() => edit(() => setMethod('CASH'))} /><PaymentChip colors={colors} label="Bank transfer" Icon={Landmark} selected={method === 'BANK_TRANSFER'} onPress={() => edit(() => setMethod('BANK_TRANSFER'))} /></View>
             {method === 'CASH' ? <Field label="Cash received (LKR)" value={cash} onChangeText={value => edit(() => setCash(value))} keyboardType="decimal-pad" placeholder="Enter amount received" /> : <><Field label="Bank transfer reference" value={reference} onChangeText={value => edit(() => setReference(value))} maxLength={120} /><AppStatusBadge label="Pending manager verification" tone="warning" /></>}
             <View style={[styles.totalPreview, { backgroundColor: colors.primarySoft }]}><View style={styles.totalIcon}><ReceiptText color={colors.primary} size={44} /></View><View style={styles.totalCopy}><Text style={[type.heading, { color: colors.textMuted }]}>Estimated total</Text><Text style={[styles.totalValue, { color: colors.text }]}>{estimated ? lkr(estimated) : '—'}</Text><Text style={[type.caption, { color: colors.textMuted }]}>Final subtotal, discount, and total are confirmed by saloonOS when you review payment.</Text></View></View>
             <Button label="Refresh cart prices" variant="secondary" onPress={() => void catalog.refetch().then(result => {
@@ -258,8 +258,7 @@ export default function CheckoutScreen() {
   );
 }
 
-function PaymentChip(label: string, Icon: typeof WalletCards, selected: boolean, onPress: () => void) {
-  const { colors } = useTheme();
+function PaymentChip({ colors, label, Icon, selected, onPress }: { colors: ReturnType<typeof useTheme>['colors']; label: string; Icon: typeof WalletCards; selected: boolean; onPress: () => void }) {
   return <Pressable accessibilityRole="button" accessibilityState={{ selected }} onPress={onPress} style={[styles.paymentChip, { backgroundColor: selected ? colors.primarySoft : colors.surface, borderColor: selected ? colors.primary : colors.border }]}><View style={[styles.paymentIcon, { backgroundColor: colors.primarySoft }]}><Icon color={colors.primary} size={22} /></View><Text style={[type.bodyStrong, { color: colors.text }]}>{label}</Text><View style={[styles.radio, { borderColor: selected ? colors.primary : colors.borderStrong, backgroundColor: selected ? colors.primary : 'transparent' }]}>{selected ? <View style={styles.radioDot} /> : null}</View></Pressable>;
 }
 

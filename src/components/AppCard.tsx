@@ -1,7 +1,7 @@
 import { PropsWithChildren } from 'react';
 import { Pressable, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 import { useTheme } from '../theme/ThemeProvider';
-import { layout, radius, spacing } from '../theme/tokens';
+import { elevation, layout, radius, spacing } from '../theme/tokens';
 
 type AppCardProps = PropsWithChildren<{
   /** Set false for cards that hold edge-to-edge list rows. */
@@ -17,7 +17,8 @@ export function AppCard({ children, padded = true, muted, style, onPress, access
   const cardStyle = [
     styles.card,
     padded && styles.padded,
-    { backgroundColor: muted ? colors.surfaceMuted : colors.surface, borderColor: muted ? colors.surfaceMuted : colors.border },
+    elevation.card,
+    { backgroundColor: muted ? colors.surfaceMuted : colors.surface, borderColor: muted ? colors.surfaceMuted : colors.border, shadowColor: colors.primary },
     style,
   ];
   if (!onPress) return <View style={cardStyle}>{children}</View>;

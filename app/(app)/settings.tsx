@@ -1,5 +1,6 @@
-import { RefreshControl, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { Image, RefreshControl, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { useState } from 'react';
+import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BellRing, MapPin } from 'lucide-react-native';
 import { AppBottomSheet } from '../../src/components/AppBottomSheet';
@@ -17,7 +18,7 @@ import { friendlyError } from '../../src/lib/errors';
 import { roleLabel, usePermissions } from '../../src/lib/permissions';
 import { BusinessProfile, NewBranch, NewSalonService, NewStaffMember, useBusinessProfile, useCreateBranch, useCreateSalonService, useCreateStaffMember, useSalonStaff, useUpdateBusinessProfile } from '../../src/lib/salon-api';
 import { useTheme } from '../../src/theme/ThemeProvider';
-import { iconSize, layout, spacing, type as typeStyles } from '../../src/theme/tokens';
+import { iconSize, layout, radius, spacing, type as typeStyles } from '../../src/theme/tokens';
 
 export default function BusinessSettingsScreen() {
   const { colors } = useTheme();
@@ -47,12 +48,12 @@ export default function BusinessSettingsScreen() {
             <AppErrorState title="Couldn’t load business details" message={friendlyError(profile.error, { fallback: 'Please try again.' })} onRetry={() => void profile.refetch()} retrying={profile.isFetching} />
           ) : business ? (
             <>
-              <AppCard>
+              <AppCard style={styles.businessCard}>
                 <View style={styles.row}>
                   <Text style={[typeStyles.caption, { color: colors.textMuted }]}>Business name</Text>
                   {role ? <AppStatusBadge label={`You: ${roleLabel[role]}`} tone="accent" /> : null}
                 </View>
-                <Text style={[typeStyles.heading, { color: colors.text }]}>{business.name}</Text>
+                <Text style={[styles.businessName, { color: colors.text }]}>{business.name}</Text>
                 <Text style={[typeStyles.caption, { color: colors.textMuted }]}>Workspace ID: {business.slug}</Text>
               </AppCard>
               <View style={styles.group}>
@@ -112,11 +113,12 @@ export default function BusinessSettingsScreen() {
                   </View>
                   <AppCard padded={false}>
                     {staff.data?.length ? staff.data.map((member, index) => (
-                      <AppListItem key={member.id} divider={index > 0} title={member.user.displayName} subtitle={[member.title, member.user.email].filter(Boolean).join(' · ')} leading={<AppListIcon><MapPin color={colors.primary} size={iconSize.md} /></AppListIcon>} />
+                      <AppListItem key={member.id} divider={index > 0} title={member.user.displayName} subtitle={[member.title, member.user.email].filter(Boolean).join(' · ')} leading={<AppListIcon><MapPin color={colors.primary} size={iconSize.md} /></AppListIcon>} onPress={() => router.push({ pathname: '/(app)/staff/[id]', params: { id: member.id } })} />
                     )) : <AppEmptyState compact title="No staff profiles yet" description="Add an active staff member for service appointments and POS." />}
                   </AppCard>
                 </View>
               ) : null}
+              <Image source={require('../../assets/footer style.png')} resizeMode="stretch" style={styles.footerArt} />
             </>
           ) : null}
         </ScrollView>
@@ -284,9 +286,12 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   content: { gap: spacing.xxl, padding: spacing.lg, paddingBottom: layout.screenBottomInset },
   row: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
-  group: { gap: spacing.sm },
+  businessCard: { borderRadius: radius.xl, gap: spacing.md, paddingVertical: spacing.xl },
+  businessName: { fontSize: 24, fontWeight: '700', letterSpacing: -0.5 },
+  group: { gap: spacing.md },
   sectionHeader: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.sm },
   switchRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.md },
   switchCopy: { flex: 1, gap: spacing.xs },
+  footerArt: { height: 86, marginHorizontal: -spacing.lg, marginTop: spacing.xxl, width: 'auto' },
 });

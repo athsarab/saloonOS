@@ -22,6 +22,7 @@ export default function AppLayout() {
       <Tabs.Screen name="sync" options={{ title: 'Offline & sync' }} />
       <Tabs.Screen name="account-security" options={{ title: 'Account & security' }} />
       <Tabs.Screen name="offline-checkout" options={{ title: 'Offline cash till' }} />
+      <Tabs.Screen name="staff/[id]" options={{ href: null }} />
     </Tabs>
   );
 }
