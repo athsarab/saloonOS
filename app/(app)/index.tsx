@@ -16,7 +16,7 @@ import { friendlyError } from '../../src/lib/errors';
 import { defaultTimezone, formatDateTime, greeting, saleStatus } from '../../src/lib/format';
 import { lkr } from '../../src/lib/money';
 import { usePermissions } from '../../src/lib/permissions';
-import { useAppointments, useBusinessProfile, useDashboardStats } from '../../src/lib/salon-api';
+import { useAppointments, useBusinessProfile, useDashboardStats, useMyJobs } from '../../src/lib/salon-api';
 import { useAuthStore } from '../../src/lib/auth';
 import { useTheme } from '../../src/theme/ThemeProvider';
 import { iconSize, layout, radius, spacing, type } from '../../src/theme/tokens';
@@ -38,6 +38,7 @@ export default function HomeScreen() {
   const { role, can } = usePermissions();
   const user = useAuthStore((state) => state.user);
   const canSell = can('checkout'), canReport = can('reports.read');
+  const myJobs = useMyJobs(role === 'STYLIST' || role === 'CASHIER');
 
   const profile = useBusinessProfile();
   const branches = useBranches();
@@ -144,6 +145,25 @@ export default function HomeScreen() {
               )}
             </AppCard>
           </Section>
+
+          {role === 'STYLIST' || role === 'CASHIER' ? (
+            <Section title="Jobs you’ve completed" actionLabel="View all →" onAction={() => router.push('/(app)/more')}>
+              <AppCard padded={false} style={styles.featureCard}>
+                {myJobs.isPending ? <AppLoadingState compact label="Loading your completed jobs…" /> : myJobs.isError ? (
+                  <AppErrorState compact title="Couldn’t load your jobs" message={friendlyError(myJobs.error, { fallback: 'Please try again.' })} onRetry={() => void myJobs.refetch()} retrying={myJobs.isFetching} />
+                ) : myJobs.data?.appointments.length || myJobs.data?.sales.length ? (
+                  <>
+                    {myJobs.data.appointments.slice(0, 3).map((job, index) => (
+                      <AppListItem key={job.id} divider={index > 0} title={job.service?.name ?? 'Completed appointment'} subtitle={`${job.customer.firstName} ${job.customer.lastName ?? ''}`.trim()} trailing={<AppStatusBadge label="Completed" tone="success" />} />
+                    ))}
+                    {myJobs.data.sales.slice(0, Math.max(0, 3 - myJobs.data.appointments.length)).map((sale, index) => (
+                      <AppListItem key={sale.id} divider={myJobs.data.appointments.length + index > 0} title={sale.itemName} subtitle={`${sale.sale.receiptNumber} · ${lkr(sale.lineTotalLkr)}`} trailing={<AppStatusBadge label="Sale" tone="accent" />} />
+                    ))}
+                  </>
+                ) : <AppEmptyState compact title="No completed jobs yet" description="Completed appointments and POS services assigned to you will appear here." />}
+              </AppCard>
+            </Section>
+          ) : null}
 
           {canSell ? (
             <Section title="Recent sales" actionLabel={recentSales.length ? 'See all →' : undefined} onAction={() => router.push('/(app)/sales')}>

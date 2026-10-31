@@ -53,9 +53,9 @@ export default function MoreScreen() {
   ];
 
   const settings: Entry[] = [
-    { key: 'appearance', title: 'Appearance', icon: Palette, onPress: () => setAppearanceOpen(true) },
-    { key: 'business', title: 'Business settings', icon: Building2, onPress: () => router.push('/(app)/settings') },
-    { key: 'security', title: 'Account & security', icon: ShieldCheck,  onPress: () => router.push('/(app)/account-security') },
+    { key: 'appearance', title: 'Appearance', subtitle: 'Choose your preferred look', icon: Palette, onPress: () => setAppearanceOpen(true) },
+    { key: 'business', title: 'Business settings', subtitle: 'Manage your salon workspace', icon: Building2, onPress: () => router.push('/(app)/settings') },
+    { key: 'security', title: 'Account & security', subtitle: 'Protect your account', icon: ShieldCheck,  onPress: () => router.push('/(app)/account-security') },
     ...(tenants.length > 1 ? [{ key: 'switch', title: 'Switch business', icon: Repeat, subtitle: `${tenants.length} businesses on this account`, onPress: () => router.push('/business-selection') }] : []),
   ];
 
