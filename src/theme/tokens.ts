@@ -28,6 +28,10 @@ export const type = {
 
 // Only floating layers (sheets, dialogs, toasts) are elevated.
 export const elevation = {
+  card: Platform.select({
+    android: { elevation: 3 },
+    default: { shadowColor: '#5B2BC5', shadowOpacity: 0.1, shadowRadius: 14, shadowOffset: { width: 0, height: 6 } },
+  }),
   overlay: Platform.select({
     android: { elevation: 8 },
     default: { shadowColor: '#101828', shadowOpacity: 0.12, shadowRadius: 16, shadowOffset: { width: 0, height: 6 } },

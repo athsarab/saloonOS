@@ -32,6 +32,11 @@ export function useDashboardStats() {
 
 export type SalonService = { id: string; name: string; category: string | null; description: string | null; priceLkr: string; durationMinutes: number | null; active: boolean };
 export type SalonStaff = { id: string; branchId: string; title: string | null; user: { displayName: string; email?: string }; active: boolean };
+export type StaffJobs = {
+  staff: SalonStaff & { user: { id: string; displayName: string; email: string }; branch: { name: string } };
+  appointments: { id: string; startsAt: string; customer: { firstName: string; lastName?: string | null }; service?: { name: string } | null }[];
+  sales: { id: string; itemName: string; quantity: string; lineTotalLkr: string; sale: { id: string; receiptNumber: string; createdAt: string; customerName?: string | null } }[];
+};
 
 export function useAppointments(date = new Date(), filters?: { staffProfileId?: string; status?: string }) {
   const bounds = dayBounds(date);
@@ -54,6 +59,16 @@ export function useSalonServices(search = '') {
 export function useSalonStaff() {
   const scope = useScope();
   return useQuery({ queryKey: ['salon-staff', scope], queryFn: () => apiRequest<SalonStaff[]>('/v1/salon/staff'), enabled: !!scope });
+}
+
+export function useMyJobs(enabled = true) {
+  const scope = useScope();
+  return useQuery({ queryKey: ['salon-my-jobs', scope], queryFn: () => apiRequest<StaffJobs>('/v1/salon/staff/me/jobs'), enabled: !!scope && enabled });
+}
+
+export function useStaffJobs(id?: string) {
+  const scope = useScope();
+  return useQuery({ queryKey: ['salon-staff-jobs', scope, id], queryFn: () => apiRequest<StaffJobs>(`/v1/salon/staff/${id}/jobs`), enabled: !!scope && !!id });
 }
 
 export type AppointmentInput = { branchId: string; customerId: string; serviceId: string; staffProfileId?: string; startsAt: string; notes?: string };
@@ -152,5 +167,9 @@ export function useCreateCustomer() {
 
 export function useCustomer(id?: string) {
   const scope = useScope();
-  return useQuery({ queryKey: ['salon-customer', scope, id], queryFn: () => apiRequest<CustomerDetail>(`/v1/salon/customers/${id}`), enabled: !!scope && !!id });
+  return useQuery({
+    queryKey: ['salon-customer', scope, id],
+    queryFn: () => apiRequest<CustomerDetail>(`/v1/salon/customers/${id}`),
+    enabled: Boolean(scope && id),
+  });
 }
