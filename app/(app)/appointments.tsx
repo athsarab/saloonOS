@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { FlatList, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, Clock3, Plus } from 'lucide-react-native';
 import { AppBottomSheet } from '../../src/components/AppBottomSheet';
@@ -160,15 +160,17 @@ function SelectionDropdown({ label, value, placeholder, options, onChange, clear
   const [open, setOpen] = useState(false);
   return <View style={styles.fieldGroup}>
     <Text numberOfLines={1} style={[type.label, styles.fieldLabel, { color: colors.text }]}>{label}</Text>
-    <Pressable accessibilityRole="button" accessibilityState={{ expanded: open }} onPress={() => setOpen((current) => !current)} style={[styles.dropdownTrigger, styles.inlineControl, { backgroundColor: colors.input, borderColor: open ? colors.focus : colors.borderStrong }]}>
-      <Text numberOfLines={1} style={[type.body, { color: value ? colors.text : colors.inputPlaceholder }]}>{value ?? placeholder}</Text>
-      <ChevronDown color={colors.textMuted} size={iconSize.md} style={open ? styles.chevronOpen : undefined} />
-    </Pressable>
-    {open ? <View style={[styles.dropdownMenu, { backgroundColor: colors.surfaceRaised, borderColor: colors.border, shadowColor: colors.text }]}>
-      {clearable ? <Pressable onPress={() => { onChange(''); setOpen(false); }} style={[styles.dropdownOption, { backgroundColor: !value ? colors.primarySoft : 'transparent' }]}><Text style={[type.body, { color: colors.textMuted }]}>Any available staff</Text>{!value ? <Check color={colors.primary} size={iconSize.md} /> : null}</Pressable> : null}
-      {options.map((option) => <Pressable key={option.id} onPress={() => { onChange(option.id); setOpen(false); }} style={[styles.dropdownOption, { backgroundColor: value === option.id ? colors.primarySoft : 'transparent' }]}><Text numberOfLines={1} style={[type.body, styles.optionLabel, { color: colors.text }]}>{option.label}</Text>{value === option.label || value === option.id ? <Check color={colors.primary} size={iconSize.md} /> : null}</Pressable>)}
-      {!options.length ? <Text style={[type.caption, styles.emptyOption, { color: colors.textMuted }]}>No options available</Text> : null}
-    </View> : null}
+    <View style={[styles.dropdownControl, open && styles.dropdownControlOpen]}>
+      <Pressable accessibilityRole="button" accessibilityState={{ expanded: open }} onPress={() => setOpen((current) => !current)} style={[styles.dropdownTrigger, { backgroundColor: colors.input, borderColor: open ? colors.focus : colors.borderStrong }]}>
+        <Text numberOfLines={1} style={[type.body, styles.optionLabel, { color: value ? colors.text : colors.inputPlaceholder }]}>{value ?? placeholder}</Text>
+        <ChevronDown color={colors.textMuted} size={iconSize.md} style={open ? styles.chevronOpen : undefined} />
+      </Pressable>
+      {open ? <ScrollView nestedScrollEnabled keyboardShouldPersistTaps="handled" style={[styles.dropdownMenu, { backgroundColor: colors.surfaceRaised, borderColor: colors.border, shadowColor: colors.text }]}>
+        {clearable ? <Pressable onPress={() => { onChange(''); setOpen(false); }} style={[styles.dropdownOption, { backgroundColor: !value ? colors.primarySoft : 'transparent' }]}><Text style={[type.body, { color: colors.textMuted }]}>Any available staff</Text>{!value ? <Check color={colors.primary} size={iconSize.md} /> : null}</Pressable> : null}
+        {options.map((option) => <Pressable key={option.id} onPress={() => { onChange(option.id); setOpen(false); }} style={[styles.dropdownOption, { backgroundColor: value === option.label ? colors.primarySoft : 'transparent' }]}><Text numberOfLines={1} style={[type.body, styles.optionLabel, { color: colors.text }]}>{option.label}</Text>{value === option.label ? <Check color={colors.primary} size={iconSize.md} /> : null}</Pressable>)}
+        {!options.length ? <Text style={[type.caption, styles.emptyOption, { color: colors.textMuted }]}>No options available</Text> : null}
+      </ScrollView> : null}
+    </View>
   </View>;
 }
 
@@ -242,10 +244,12 @@ const styles = StyleSheet.create({
   fieldGroup: { alignItems: 'center', flexDirection: 'row', gap: spacing.md, minHeight: 54, zIndex: 2 },
   fieldLabel: { flexShrink: 0, width: 112 },
   inlineControl: { flex: 1 },
+  dropdownControl: { flex: 1, position: 'relative' },
+  dropdownControlOpen: { zIndex: 10 },
   dropdownTrigger: { alignItems: 'center', borderRadius: radius.md, borderWidth: 1, flexDirection: 'row', justifyContent: 'space-between', minHeight: 54, paddingHorizontal: spacing.md },
   dropdownCopy: { flex: 1, gap: spacing.xxs },
   chevronOpen: { transform: [{ rotate: '180deg' }] },
-  dropdownMenu: { borderRadius: radius.md, borderWidth: 1, elevation: 4, marginTop: spacing.xs, overflow: 'hidden', shadowOpacity: 0.12, shadowRadius: 10 },
+  dropdownMenu: { borderRadius: radius.md, borderWidth: 1, elevation: 4, marginTop: spacing.xs, maxHeight: 224, overflow: 'hidden', shadowOpacity: 0.12, shadowRadius: 10 },
   dropdownOption: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm, minHeight: 48, paddingHorizontal: spacing.md },
   optionLabel: { flex: 1 },
   emptyOption: { padding: spacing.md },
