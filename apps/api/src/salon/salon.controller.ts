@@ -10,7 +10,7 @@ import { SalonService } from './salon.service';
 @Controller('salon')
 export class SalonController {
   constructor(private readonly salon: SalonService) {}
-  @Get('dashboard') @RequirePermissions(Permission.APPOINTMENTS_READ) dashboard(@Req() req: AuthenticatedRequest, @Query() query: DashboardQueryDto) { return this.salon.dashboard(req.user.tenantId, query.from, query.to); }
+  @Get('dashboard') @RequirePermissions(Permission.APPOINTMENTS_READ) dashboard(@Req() req: AuthenticatedRequest, @Query() query: DashboardQueryDto) { return this.salon.dashboard(req.user.tenantId, req.user.sub, req.user.role, query.from, query.to); }
   @Get('profile') @RequirePermissions(Permission.BUSINESS_SETTINGS_READ) profile(@Req() req: AuthenticatedRequest) { return this.salon.profile(req.user.tenantId); }
   @Patch('profile') @RequirePermissions(Permission.BUSINESS_SETTINGS_WRITE) updateProfile(@Req() req: AuthenticatedRequest, @Body() dto: UpdateBusinessDto) { return this.salon.updateProfile(req.user.tenantId, dto); }
   @Get('branches') @RequirePermissions(Permission.BUSINESS_SETTINGS_READ) branches(@Req() req: AuthenticatedRequest) { return this.salon.branches(req.user.tenantId); }
@@ -22,12 +22,14 @@ export class SalonController {
   @Post('customers') @RequirePermissions(Permission.CUSTOMER_WRITE) createCustomer(@Req() req: AuthenticatedRequest, @Body() dto: CustomerDto) { return this.salon.createCustomer(req.user.tenantId, dto); }
   @Get('customers/:id') @RequirePermissions(Permission.CUSTOMER_READ) customer(@Req() req: AuthenticatedRequest, @Param('id') id: string) { return this.salon.customer(req.user.tenantId, id); }
   @Get('staff') @RequirePermissions(Permission.STAFF_READ) staff(@Req() req: AuthenticatedRequest) { return this.salon.staff(req.user.tenantId); }
+  @Get('staff/me/jobs') @RequirePermissions(Permission.APPOINTMENTS_READ) myJobs(@Req() req: AuthenticatedRequest) { return this.salon.jobs(req.user.tenantId, req.user.sub); }
+  @Get('staff/:id/jobs') @RequirePermissions(Permission.STAFF_READ) memberJobs(@Req() req: AuthenticatedRequest, @Param('id') id: string) { return this.salon.jobs(req.user.tenantId, undefined, id); }
   @Post('staff/members') @RequirePermissions(Permission.STAFF_WRITE) createStaffMember(@Req() req: AuthenticatedRequest, @Body() dto: CreateStaffMemberDto) { return this.salon.createStaffMember(req.user.tenantId, dto); }
   @Post('staff') @RequirePermissions(Permission.STAFF_WRITE) createStaff(@Req() req: AuthenticatedRequest, @Body() dto: StaffDto) { return this.salon.createStaff(req.user.tenantId, dto); }
   @Post('staff/:id/schedule') @RequirePermissions(Permission.STAFF_SCHEDULE_WRITE) schedule(@Req() req: AuthenticatedRequest, @Param('id') id: string, @Body() dto: ScheduleDto) { return this.salon.schedule(req.user.tenantId, id, dto); }
   @Post('staff/:id/time-off') @RequirePermissions(Permission.STAFF_SCHEDULE_WRITE) timeOff(@Req() req: AuthenticatedRequest, @Param('id') id: string, @Body() dto: TimeOffDto) { return this.salon.timeOff(req.user.tenantId, id, dto); }
-  @Get('appointments') @RequirePermissions(Permission.APPOINTMENTS_READ) appointments(@Req() req: AuthenticatedRequest, @Query() query: AppointmentQueryDto) { return this.salon.appointments(req.user.tenantId, query); }
-  @Get('appointments/:id') @RequirePermissions(Permission.APPOINTMENTS_READ) appointment(@Req() req: AuthenticatedRequest, @Param('id') id: string) { return this.salon.appointment(req.user.tenantId, id); }
-  @Post('appointments') @RequirePermissions(Permission.APPOINTMENTS_WRITE) createAppointment(@Req() req: AuthenticatedRequest, @Body() dto: AppointmentDto) { return this.salon.createAppointment(req.user.tenantId, dto); }
-  @Patch('appointments/:id') @RequirePermissions(Permission.APPOINTMENTS_WRITE) updateAppointment(@Req() req: AuthenticatedRequest, @Param('id') id: string, @Body() dto: UpdateAppointmentDto) { return this.salon.updateAppointment(req.user.tenantId, id, dto); }
+  @Get('appointments') @RequirePermissions(Permission.APPOINTMENTS_READ) appointments(@Req() req: AuthenticatedRequest, @Query() query: AppointmentQueryDto) { return this.salon.appointments(req.user.tenantId, query, req.user.sub, req.user.role); }
+  @Get('appointments/:id') @RequirePermissions(Permission.APPOINTMENTS_READ) appointment(@Req() req: AuthenticatedRequest, @Param('id') id: string) { return this.salon.appointment(req.user.tenantId, id, req.user.sub, req.user.role); }
+  @Post('appointments') @RequirePermissions(Permission.APPOINTMENTS_WRITE) createAppointment(@Req() req: AuthenticatedRequest, @Body() dto: AppointmentDto) { return this.salon.createAppointment(req.user.tenantId, dto, req.user.sub, req.user.role); }
+  @Patch('appointments/:id') @RequirePermissions(Permission.APPOINTMENTS_WRITE) updateAppointment(@Req() req: AuthenticatedRequest, @Param('id') id: string, @Body() dto: UpdateAppointmentDto) { return this.salon.updateAppointment(req.user.tenantId, id, dto, req.user.sub, req.user.role); }
 }
