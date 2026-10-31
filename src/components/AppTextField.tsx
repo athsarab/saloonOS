@@ -61,7 +61,7 @@ export const AppTextField = forwardRef<TextInputInstance, AppTextFieldProps>(fun
 
 const styles = StyleSheet.create({
   field: { gap: spacing.xs + 2 },
-  box: { alignItems: 'center', borderRadius: radius.md, borderWidth: 1, flexDirection: 'row', minHeight: control.input },
+  box: { alignItems: 'center', borderRadius: radius.lg, borderWidth: 1, flexDirection: 'row', minHeight: control.input },
   input: { flex: 1, minHeight: control.input - 2, paddingHorizontal: spacing.md + 2, paddingVertical: spacing.sm },
   toggle: { alignItems: 'center', height: control.input - 2, justifyContent: 'center', width: control.input - 2 },
 });

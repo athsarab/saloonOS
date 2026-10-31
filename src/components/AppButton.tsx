@@ -61,7 +61,7 @@ export function AppButton({ label, variant = 'primary', size = 'md', loading, di
 }
 
 const styles = StyleSheet.create({
-  frame: { alignItems: 'center', borderRadius: radius.md, borderWidth: 1, justifyContent: 'center', minWidth: control.button, overflow: 'hidden' },
+  frame: { alignItems: 'center', borderRadius: radius.lg, borderWidth: 1, justifyContent: 'center', minWidth: control.button, overflow: 'hidden' },
   pressable: { alignItems: 'center', alignSelf: 'stretch', flex: 1, height: '100%', justifyContent: 'center', width: '100%' },
   md: { height: control.button, minHeight: control.button },
   sm: { height: control.buttonSm, minHeight: control.buttonSm, paddingHorizontal: spacing.md },

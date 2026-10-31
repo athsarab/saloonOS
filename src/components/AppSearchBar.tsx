@@ -11,7 +11,7 @@ type AppSearchBarProps = Omit<TextInputProps, 'onChangeText' | 'value'> & {
 export function AppSearchBar({ value, onChangeText, placeholder = 'Search', accessibilityLabel, ...props }: AppSearchBarProps) {
   const { colors } = useTheme();
   return (
-    <View style={[styles.bar, { backgroundColor: colors.surfaceMuted }]}>
+    <View style={[styles.bar, { backgroundColor: colors.surfaceMuted, borderColor: colors.border }]}>
       <Search color={colors.textMuted} size={iconSize.md} />
       <TextInput
         accessibilityLabel={accessibilityLabel ?? placeholder}
@@ -35,7 +35,7 @@ export function AppSearchBar({ value, onChangeText, placeholder = 'Search', acce
 }
 
 const styles = StyleSheet.create({
-  bar: { alignItems: 'center', borderRadius: radius.md, flexDirection: 'row', gap: spacing.sm, minHeight: control.input, paddingLeft: spacing.md },
+  bar: { alignItems: 'center', borderRadius: radius.lg, borderWidth: 1, flexDirection: 'row', gap: spacing.sm, minHeight: control.input, paddingLeft: spacing.md },
   input: { flex: 1, minHeight: control.input, paddingVertical: spacing.sm },
   clear: { alignItems: 'center', height: touch.min, justifyContent: 'center', width: touch.min },
 });
