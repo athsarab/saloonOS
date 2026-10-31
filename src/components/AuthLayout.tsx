@@ -23,7 +23,7 @@ export function AuthLayout({ title, description, onBack, footer, children }: Aut
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}>
           <View style={styles.inner}>
             <AuthVisual compact back={onBack} />
-            <View style={[styles.panel, { backgroundColor: colors.surface }]}>
+            <View style={[styles.panel, { backgroundColor: colors.surface, zIndex: 2 }]}>
               <AppHeader size="screen" title={title} description={description} />
               <View style={styles.body}>{children}</View>
             </View>
@@ -37,9 +37,9 @@ export function AuthLayout({ title, description, onBack, footer, children }: Aut
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  content: { flexGrow: 1, justifyContent: 'space-between', paddingHorizontal: spacing.xxl, paddingBottom: spacing.xxl, paddingTop: spacing.lg },
+  content: { flexGrow: 1, justifyContent: 'space-between', paddingBottom: spacing.xxl },
   inner: { alignSelf: 'center', gap: 0, maxWidth: 440, width: '100%' },
   panel: { borderRadius: spacing.xl, marginTop: -spacing.xl, padding: spacing.xl, position: 'relative' },
-  body: { gap: spacing.lg },
+  body: { gap: spacing.md },
   footer: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, justifyContent: 'center', paddingTop: spacing.xxl },
 });
