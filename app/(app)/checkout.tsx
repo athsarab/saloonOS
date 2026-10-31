@@ -16,7 +16,7 @@ import { feedback, feedbackError } from '../../src/lib/feedback';
 import { useTheme } from '../../src/theme/ThemeProvider';
 import { router } from 'expo-router';
 import { useOffline } from '../../src/offline/runtime';
-import { radius, spacing, type } from '../../src/theme/tokens';
+import { layout, radius, spacing, type } from '../../src/theme/tokens';
 
 type CartLine = { item: CatalogItem; quantity: number; staffId?: string };
 type Attempt = { payload: CheckoutRequest; idempotencyKey: string };
@@ -261,7 +261,7 @@ export default function CheckoutScreen() {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 }, center: { flex: 1, padding: spacing.xxl, justifyContent: 'center', gap: spacing.lg },
-  list: { padding: spacing.lg, paddingBottom: spacing.xxxl }, header: { gap: spacing.lg, marginBottom: spacing.xl },
+  list: { padding: spacing.lg, paddingBottom: layout.screenBottomInset }, header: { gap: spacing.lg, marginBottom: spacing.xl },
   eyebrow: { ...type.micro }, title: { ...type.title },
   heading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
   subtitle: { ...type.heading }, price: { ...type.bodyStrong, marginVertical: spacing.xs },

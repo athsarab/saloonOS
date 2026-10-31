@@ -34,8 +34,8 @@ export function AuthVisual({ children, back, compact = false }: AuthVisualProps)
 
 const styles = StyleSheet.create({
   hero: { overflow: 'hidden', position: 'relative' },
-  fullHero: { borderBottomLeftRadius: radius.xl, borderBottomRightRadius: radius.xl, minHeight: 420 },
-  compact: { minHeight: 232 },
+  fullHero: { borderBottomLeftRadius: radius.xl, borderBottomRightRadius: radius.xl, minHeight: 420, zIndex: 0 },
+  compact: { minHeight: 196 },
   brand: { left: spacing.xxl, position: 'absolute', top: spacing.xl },
   back: { alignItems: 'center', flexDirection: 'row', gap: spacing.xs, left: spacing.lg, minHeight: touch.min, position: 'absolute', top: spacing.md },
   orb: { borderRadius: radius.pill, position: 'absolute' },

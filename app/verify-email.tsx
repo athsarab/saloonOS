@@ -111,7 +111,7 @@ export default function VerifyEmailScreen() {
           <Text style={[type.caption, styles.infoText, { color: colors.text }]}>{notice.text}</Text>
         </View>
       ) : null}
-      <AppButton label="Verify email" variant="auth" loading={pending === 'verify'} disabled={pending === 'resend'} onPress={() => void verify()} />
+      <AppButton label="Verify email" variant="primary" loading={pending === 'verify'} disabled={pending === 'resend'} onPress={() => void verify()} />
       <AppButton label="Send a new code" variant="secondary" loading={pending === 'resend'} disabled={pending === 'verify'} onPress={() => void resend()} />
     </AuthLayout>
   );

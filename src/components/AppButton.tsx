@@ -23,7 +23,7 @@ export function AppButton({ label, variant = 'primary', size = 'md', loading, di
     secondary: { background: colors.surface, text: colors.text, border: colors.borderStrong },
     ghost: { background: 'transparent', text: colors.primary, border: 'transparent' },
     danger: { background: colors.danger, text: colors.onDanger, border: colors.danger },
-    auth: { background: colors.text, text: colors.background, border: colors.text },
+    auth: { background: colors.primary, text: colors.onPrimary, border: colors.primary },
   }[variant];
 
   return (
@@ -36,7 +36,7 @@ export function AppButton({ label, variant = 'primary', size = 'md', loading, di
       style={({ pressed }) => [
         styles.base,
         size === 'sm' ? styles.sm : styles.md,
-        { backgroundColor: palette.background, borderColor: palette.border, opacity: disabled && !loading ? 0.45 : pressed ? 0.82 : 1 },
+        { backgroundColor: palette.background, borderColor: palette.border, borderWidth: 1, opacity: disabled && !loading ? 0.45 : pressed ? 0.82 : 1 },
         fullWidth ? styles.full : styles.inline,
         style,
       ]}

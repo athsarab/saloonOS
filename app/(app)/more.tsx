@@ -19,7 +19,7 @@ import { roleLabel, usePermissions } from '../../src/lib/permissions';
 import { useBusinessProfile } from '../../src/lib/salon-api';
 import { offlineSupported, useOffline } from '../../src/offline/runtime';
 import { useTheme } from '../../src/theme/ThemeProvider';
-import { iconSize, spacing, type } from '../../src/theme/tokens';
+import { iconSize, layout, spacing, type } from '../../src/theme/tokens';
 
 type Entry = { key: string; title: string; subtitle: string; icon: typeof ReceiptText; onPress: () => void; trailing?: ReactNode };
 
@@ -137,7 +137,7 @@ export default function MoreScreen() {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  content: { gap: spacing.xxl, padding: spacing.lg, paddingBottom: spacing.xxxl },
+  content: { gap: spacing.xxl, padding: spacing.lg, paddingBottom: layout.screenBottomInset },
   profileHeader: { alignItems: 'center', flexDirection: 'row', gap: spacing.md },
   profileCopy: { flex: 1, gap: spacing.xs },
   group: { gap: spacing.sm },

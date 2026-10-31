@@ -68,7 +68,7 @@ export default function ResetPasswordScreen() {
         <AppTextField ref={confirmRef} label="Confirm new password" required placeholder="Re-enter the new password" secureToggle autoCapitalize="none" autoCorrect={false} autoComplete="new-password" textContentType="newPassword" returnKeyType="go" onSubmitEditing={onSubmit} editable={!isSubmitting} value={field.value} onChangeText={field.onChange} onBlur={field.onBlur} error={errors.confirm?.message} />
       )} />
       <AppInlineError message={errors.root?.message} />
-      <AppButton label="Update password" variant="auth" loading={isSubmitting} onPress={onSubmit} />
+      <AppButton label="Update password" variant="primary" loading={isSubmitting} onPress={onSubmit} />
       {errors.root ? <AppButton label="Request a new reset link" variant="ghost" onPress={() => router.replace('/forgot-password')} /> : null}
     </AuthLayout>
   );

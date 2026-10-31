@@ -12,7 +12,7 @@ import { apiRequest } from '../../src/lib/api';
 import { useAuthStore } from '../../src/lib/auth';
 import { friendlyError } from '../../src/lib/errors';
 import { useTheme } from '../../src/theme/ThemeProvider';
-import { spacing, type } from '../../src/theme/tokens';
+import { layout, spacing, type } from '../../src/theme/tokens';
 
 export default function AccountSecurityScreen() {
   const { colors } = useTheme();
@@ -70,5 +70,5 @@ export default function AccountSecurityScreen() {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  content: { gap: spacing.lg, padding: spacing.lg, paddingBottom: spacing.xxxl },
+  content: { gap: spacing.lg, padding: spacing.lg, paddingBottom: layout.screenBottomInset },
 });

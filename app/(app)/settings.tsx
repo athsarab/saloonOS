@@ -17,7 +17,7 @@ import { friendlyError } from '../../src/lib/errors';
 import { roleLabel, usePermissions } from '../../src/lib/permissions';
 import { BusinessProfile, NewBranch, NewSalonService, NewStaffMember, useBusinessProfile, useCreateBranch, useCreateSalonService, useCreateStaffMember, useSalonStaff } from '../../src/lib/salon-api';
 import { useTheme } from '../../src/theme/ThemeProvider';
-import { iconSize, spacing, type as typeStyles } from '../../src/theme/tokens';
+import { iconSize, layout, spacing, type as typeStyles } from '../../src/theme/tokens';
 
 export default function BusinessSettingsScreen() {
   const { colors } = useTheme();
@@ -262,7 +262,7 @@ function AddBranchSheet({ visible, onClose, create }: { visible: boolean; onClos
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  content: { gap: spacing.xxl, padding: spacing.lg, paddingBottom: spacing.xxxl },
+  content: { gap: spacing.xxl, padding: spacing.lg, paddingBottom: layout.screenBottomInset },
   row: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
   group: { gap: spacing.sm },
   sectionHeader: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },

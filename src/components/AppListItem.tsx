@@ -19,7 +19,7 @@ type AppListItemProps = {
 export function AppListItem({ title, subtitle, leading, trailing, onPress, chevron = !!onPress, divider, destructive, accessibilityLabel }: AppListItemProps) {
   const { colors } = useTheme();
   const body = (
-    <>
+    <View style={styles.inner}>
       {leading}
       <View style={styles.copy}>
         <Text numberOfLines={1} style={[type.bodyStrong, { color: destructive ? colors.danger : colors.text }]}>{title}</Text>
@@ -27,18 +27,18 @@ export function AppListItem({ title, subtitle, leading, trailing, onPress, chevr
       </View>
       {trailing}
       {chevron ? <ChevronRight color={colors.textSubtle} size={iconSize.md} /> : null}
-    </>
+    </View>
   );
-  const rowStyle = [styles.row, divider && { borderTopColor: colors.border, borderTopWidth: StyleSheet.hairlineWidth }];
-  if (!onPress) return <View style={rowStyle}>{body}</View>;
+  const rowStyle = [divider && { borderTopColor: colors.border, borderTopWidth: StyleSheet.hairlineWidth }];
+  if (!onPress) return <View style={styles.row}><View style={rowStyle}>{body}</View></View>;
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? (subtitle ? `${title}, ${subtitle}` : title)}
       onPress={onPress}
-      style={({ pressed }) => [rowStyle, pressed && { backgroundColor: colors.surfaceMuted }]}
+      style={({ pressed }) => [styles.row, pressed && { backgroundColor: colors.surfaceMuted }]}
     >
-      {body}
+      <View style={rowStyle}>{body}</View>
     </Pressable>
   );
 }
@@ -62,8 +62,9 @@ export function AppAvatar({ name }: { name: string }) {
 }
 
 const styles = StyleSheet.create({
-  row: { alignItems: 'center', borderBottomWidth: 0, flexDirection: 'row', gap: spacing.md, minHeight: 60, paddingHorizontal: layout.screenGutter, paddingVertical: spacing.md },
-  copy: { flex: 1, gap: spacing.xxs },
+  row: { minHeight: 60 },
+  inner: { alignItems: 'center', flexDirection: 'row', gap: spacing.md, minHeight: 60, minWidth: 0, paddingHorizontal: layout.screenGutter, paddingVertical: spacing.md },
+  copy: { flex: 1, gap: spacing.xxs, minWidth: 0 },
   icon: { alignItems: 'center', borderRadius: radius.sm + 2, height: 36, justifyContent: 'center', width: 36 },
   avatar: { alignItems: 'center', borderRadius: radius.pill, height: 36, justifyContent: 'center', width: 36 },
 });

@@ -19,7 +19,7 @@ import { usePermissions } from '../../src/lib/permissions';
 import { useAppointments, useBusinessProfile, useDashboardStats } from '../../src/lib/salon-api';
 import { useAuthStore } from '../../src/lib/auth';
 import { useTheme } from '../../src/theme/ThemeProvider';
-import { iconSize, radius, spacing, type } from '../../src/theme/tokens';
+import { iconSize, layout, radius, spacing, type } from '../../src/theme/tokens';
 
 const activeStatuses = ['BOOKED', 'CONFIRMED', 'CHECKED_IN'];
 
@@ -224,7 +224,7 @@ function QuickAction({ label, icon, onPress }: { label: string; icon: ReactNode;
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  content: { gap: spacing.xxl, padding: spacing.lg, paddingBottom: spacing.xxxl },
+  content: { gap: spacing.xxl, padding: spacing.lg, paddingBottom: layout.screenBottomInset },
   header: { alignItems: 'center', borderBottomWidth: StyleSheet.hairlineWidth, flexDirection: 'row', gap: spacing.md, paddingBottom: spacing.lg },
   net: { gap: spacing.xxs },
   metrics: { flexDirection: 'row', gap: spacing.sm },

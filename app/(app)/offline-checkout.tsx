@@ -12,7 +12,7 @@ import type { CheckoutRequest } from '../../src/lib/checkout-api';
 import { cents, decimal, lkr } from '../../src/lib/money';
 import { shareReceipt } from '../../src/lib/receipt';
 import { feedback, feedbackError } from '../../src/lib/feedback';
-import { radius, spacing, type } from '../../src/theme/tokens';
+import { layout, radius, spacing, type } from '../../src/theme/tokens';
 
 export default function OfflineCashScreen() {
   const state = useOffline(), snapshot = state.snapshot;
@@ -70,7 +70,7 @@ export default function OfflineCashScreen() {
 }
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  content: { padding: spacing.lg, gap: spacing.lg, paddingBottom: spacing.xxxl },
+  content: { padding: spacing.lg, gap: spacing.lg, paddingBottom: layout.screenBottomInset },
   gap: { gap: spacing.lg },
   title: { ...type.title },
   heading: { ...type.heading },

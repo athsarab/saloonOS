@@ -22,7 +22,7 @@ export default function WelcomeScreen() {
           </View>
         </AuthVisual>
         <View style={[styles.actions, { backgroundColor: colors.surface }]}>
-          <AppButton label="Sign in" variant="auth" onPress={() => router.push('/login')} />
+          <AppButton label="Sign in" variant="primary" onPress={() => router.push('/login')} />
           <AppButton label="Sign up" variant="secondary" onPress={() => router.push('/register')} />
         </View>
       </View>
