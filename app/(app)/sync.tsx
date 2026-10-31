@@ -11,7 +11,7 @@ import { shareReceipt } from '../../src/lib/receipt';
 import { lkr } from '../../src/lib/money';
 import { feedback, feedbackError } from '../../src/lib/feedback';
 import { offlineSupported, prepareOffline, probeApi, registerOfflineDevice, retryOffline, useOffline } from '../../src/offline/runtime';
-import { radius, spacing, type } from '../../src/theme/tokens';
+import { layout, radius, spacing, type } from '../../src/theme/tokens';
 
 function Text({ style, ...props }: TextProps) { const { colors } = useTheme(); return <NativeText {...props} style={[{ color: colors.text }, style]} />; }
 
@@ -78,7 +78,7 @@ export default function SyncScreen() {
   </ScrollView></SafeAreaView></Screen>;
 }
 const styles = StyleSheet.create({
-  content: { padding: spacing.lg, gap: spacing.lg, paddingBottom: spacing.xxxl },
+  content: { padding: spacing.lg, gap: spacing.lg, paddingBottom: layout.screenBottomInset },
   title: { ...type.title },
   heading: { ...type.heading, marginBottom: spacing.sm },
   wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
